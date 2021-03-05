@@ -1,0 +1,135 @@
+name: Create Pre-release
+
+on:
+  push:
+    branches: [main]
+
+env:
+  BUILD_CONFIGURATION: Release
+  SOURCE_DIRECTORY: ./api
+
+jobs:
+  build:
+    name: Create new Pre-release
+    if: "!contains(join(github.event.commits.*.message), '+norelease')"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Setup .NET Core
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: '3.1.406'
+
+      - name: Setup GitVersion
+        uses: gittools/actions/gitversion/setup@v0.9.9
+        with:
+          versionSpec: '5.x'
+
+      - name: Execute GitVersion
+        id: gitversion
+        uses: gittools/actions/gitversion/execute@v0.9.9
+        with:
+          useConfigFile: true
+
+      - name: Create Release Asset - Gateway
+        run: |
+          dotnet publish ${{ env.SOURCE_DIRECTORY }}/Gateway.csproj -o Gateway -c ${{ env.BUILD_CONFIGURATION }} -p:VersionPrefix="${{ steps.gitversion.outputs.majorMinorPatch }}" -p:AssemblyVersion="${{ steps.gitversion.outputs.assemblySemVer }}" -p:FileVersion="${{ steps.gitversion.outputs.assemblySemFileVer }}" -p:IncludeSymbols=true
+
+          pushd Gateway
+            zip -r ../Gateway.zip *
+          popd
+
+      - uses: actions/setup-python@v2
+        with:
+          python-version: '3.9'
+
+      - uses: actions/setup-node@v2
+        with:
+          node-version: '12'
+
+      - name: Create index.json
+        run: python ./tools/create-index.py ${{ steps.gitversion.outputs.majorMinorPatch }}
+
+      - name: Get CLI Version
+        id: cli_version
+        run: python ./tools/cli-version.py
+
+      - name: Build CLI
+        run: bash ./tools/build-cli.sh
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: 'v${{ steps.gitversion.outputs.majorMinorPatch }}'
+          release_name: 'v${{ steps.gitversion.outputs.majorMinorPatch }}-pre'
+          body: 'Pre-release build.'
+          prerelease: true
+
+      - name: Upload Release Asset - Gateway.zip
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: Gateway.zip
+          asset_name: Gateway.zip
+          asset_content_type: application/zip
+
+      - name: Upload Release Asset - gateway.ps1
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: arm/gateway/artifacts/gateway.ps1
+          asset_name: gateway.ps1
+          asset_content_type: text/plain
+
+      - name: Upload Release Asset - azuredeploy.json
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: arm/gateway/azuredeploy.json
+          asset_name: azuredeploy.json
+          asset_content_type: application/json
+
+      - name: Upload Release Asset - azuredeploy.lab.json
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: arm/lab/azuredeploy.json
+          asset_name: azuredeploy.lab.json
+          asset_content_type: application/json
+
+      - name: Upload Release Asset - index.json
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: index.json
+          asset_name: index.json
+          asset_content_type: application/json
+
+      - name: Upload Release Asset - CLI WHL
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: dist/lab-gatewayt-${{ steps.cli_version.outputs.version }}-py2.py3-none-any.whl
+          asset_name: lab-gatewayt-${{ steps.cli_version.outputs.version }}-py2.py3-none-any.whl
+          asset_content_type: application/zip
