@@ -1,6 +1,6 @@
 # Development
 
-The Azure CLI TeamCloud extension was developed using [Microsoft Azure CLI Dev Tools (azdev)](https://github.com/Azure/azure-cli-dev-tools).
+The Azure CLI DevTestLabs Gateway extension was developed using [Microsoft Azure CLI Dev Tools (azdev)](https://github.com/Azure/azure-cli-dev-tools).
 
 This document explains how to get a local development environment set up.
 
@@ -11,7 +11,7 @@ This document explains how to get a local development environment set up.
 3. Create a new virtual environment for Python in the _client_ (this) directory of your clone. You can do this by running:
 
     ```sh
-    cd /path/to/TeamCloud/client
+    cd /path/to/lab-gateway/client
     ```
 
     Then:
@@ -57,5 +57,5 @@ This document explains how to get a local development environment set up.
 6. Complete setup by running:
 
     ```sh
-    azdev setup -r /path/to/TeamCloud
+    azdev setup -r /path/to/lab-gateway
     ```
