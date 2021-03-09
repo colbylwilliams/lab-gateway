@@ -32,6 +32,10 @@ param signCertificatePassword string = ''
 @description('Certificate thumbprint for identification in the local certificate store.')
 param signCertificateThumbprint string = ''
 
+param useVnet string = ''
+param useGatewaySubnet string = ''
+param useBastionSubnet string = ''
+
 var resourcePrefix = 'rdg${uniqueString(resourceGroup().id)}'
 var vmNamePrefix = take(resourcePrefix, 9)
 var vmssName = '${resourcePrefix}-vmss'
@@ -60,6 +64,18 @@ var scriptIdentityName = 'createSignCertificateIdentity'
 var createSignCertificateScriptUri = 'https://raw.githubusercontent.com/colbylwilliams/lab-gateway/main/tools/create_cert.sh'
 var scriptIdentiyRoleAssignmentIdName = guid('${resourceGroup().id}${scriptIdentityName}contributor${utcValue}')
 var contributorRoleDefinitionId = '/subscriptions/${subscription().subscriptionId}/providers/Microsoft.Authorization/roleDefinitions/b24988ac-6180-42a0-ab88-20f7382dd24c'
+
+resource existingVnet 'Microsoft.Network/virtualNetworks@2020-06-01' existing = if (!empty(useVnet)) {
+  name: useVnet
+}
+
+resource existingGatewaySubnet 'Microsoft.Network/virtualNetworks/subnets@2020-06-01' existing = if (!empty(useGatewaySubnet)) {
+  name: useGatewaySubnet
+}
+
+resource existingBastionSubnet 'Microsoft.Network/virtualNetworks/subnets@2020-06-01' existing = if (!empty(useBastionSubnet)) {
+  name: useBastionSubnet
+}
 
 resource keyVault 'Microsoft.KeyVault/vaults@2019-09-01' = {
   name: keyVaultName
@@ -257,7 +273,7 @@ resource createSignCertificateScript 'Microsoft.Resources/deploymentScripts@2020
   ]
 }
 
-resource vnet 'Microsoft.Network/virtualNetworks@2020-06-01' = {
+resource vnet 'Microsoft.Network/virtualNetworks@2020-06-01' = if (empty(useVnet)) {
   name: vnetName
   location: resourceGroup().location
   properties: {
@@ -271,8 +287,8 @@ resource vnet 'Microsoft.Network/virtualNetworks@2020-06-01' = {
   }
 }
 
-resource snetGateway 'Microsoft.Network/virtualNetworks/subnets@2020-06-01' = {
-  name: '${vnet.name}/${snetGatewayName}'
+resource gatewaySubnet 'Microsoft.Network/virtualNetworks/subnets@2020-06-01' = if (empty(useGatewaySubnet)) {
+  name: '${empty(useVnet) ? vnet.name : existingVnet.name}/${snetGatewayName}'
   properties: {
     addressPrefix: '10.0.0.0/24'
     privateEndpointNetworkPolicies: 'Disabled'
@@ -280,8 +296,8 @@ resource snetGateway 'Microsoft.Network/virtualNetworks/subnets@2020-06-01' = {
   }
 }
 
-resource snetBastion 'Microsoft.Network/virtualNetworks/subnets@2020-06-01' = {
-  name: '${vnet.name}/${snetBastionName}'
+resource bastionSubnet 'Microsoft.Network/virtualNetworks/subnets@2020-06-01' = if (empty(useBastionSubnet)) {
+  name: '${empty(useVnet) ? vnet.name : existingVnet.name}/${snetBastionName}'
   properties: {
     addressPrefix: '10.0.1.0/27'
     privateEndpointNetworkPolicies: 'Disabled'
@@ -293,7 +309,7 @@ resource publicIPAddress 'Microsoft.Network/publicIPAddresses@2020-06-01' = {
   name: publicIPAddressName
   location: resourceGroup().location
   sku: {
-    name: 'Basic'
+    name: 'Standard'
   }
   properties: {
     publicIPAllocationMethod: 'Static'
@@ -330,7 +346,7 @@ resource bastionHost 'Microsoft.Network/bastionHosts@2020-06-01' = {
         name: 'ipconfig'
         properties: {
           subnet: {
-            id: snetBastion.id
+            id: empty(useBastionSubnet) ? bastionSubnet.id : existingBastionSubnet.id
           }
           publicIPAddress: {
             id: bastionIPAddress.id
@@ -345,7 +361,7 @@ resource loadBalancer 'Microsoft.Network/loadBalancers@2020-06-01' = {
   name: loadBalancerName
   location: resourceGroup().location
   sku: {
-    name: 'Basic'
+    name: 'Standard'
   }
   properties: {
     frontendIPConfigurations: [
@@ -536,7 +552,7 @@ resource vmss 'Microsoft.Compute/virtualMachineScaleSets@2020-06-01' = {
                   properties: {
                     privateIPAddressVersion: 'IPv4'
                     subnet: {
-                      id: snetGateway.id
+                      id: empty(useGatewaySubnet) ? gatewaySubnet.id : existingGatewaySubnet.id
                     }
                     loadBalancerBackendAddressPools: loadBalancer.properties.backendAddressPools
                   }
@@ -574,15 +590,15 @@ resource vmss 'Microsoft.Compute/virtualMachineScaleSets@2020-06-01' = {
   }
 }
 
-module privateEndpointDeployment 'privateEndpoint.bicep' = {
-  name: 'privateEndpoint'
-  params: {
-    resourcePrefix: resourcePrefix
-    site: functionApp.id
-    vnet: vnet.id
-    subnet: snetGateway.id
-  }
-}
+// module privateEndpointDeployment 'privateEndpoint.bicep' = {
+//   name: 'privateEndpoint'
+//   params: {
+//     resourcePrefix: resourcePrefix
+//     site: functionApp.id
+//     vnet: empty(useVnet) ? vnet.id : existingVnet.id
+//     subnet: empty(useGatewaySubnet) ? gatewaySubnet.id : existingGatewaySubnet.id
+//   }
+// }
 
 output artifactsStorage object = {
   account: storageAccount.name

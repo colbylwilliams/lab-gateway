@@ -2,7 +2,7 @@ targetScope = 'subscription'
 
 param location string
 param initLabs bool = false
-param initGateway bool = false
+// param initGateway bool = false
 
 param hub object = {
   name: 'vnet-hub'

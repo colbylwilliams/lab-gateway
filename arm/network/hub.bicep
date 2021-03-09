@@ -20,14 +20,14 @@ resource vnet 'Microsoft.Network/virtualNetworks@2020-06-01' = {
         addressPrefix
       ]
     }
-    subnets: [
-      {
-        name: firewall.subnetName
-        properties: {
-          addressPrefix: firewall.subnetPrefix
-        }
-      }
-    ]
+    // subnets: [
+    //   {
+    //     name: firewall.subnetName
+    //     properties: {
+    //       addressPrefix: firewall.subnetPrefix
+    //     }
+    //   }
+    // ]
   }
 }
 
