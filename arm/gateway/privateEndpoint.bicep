@@ -1,10 +1,12 @@
 param resourcePrefix string
+
 param site string
 param vnet string
 param subnet string
 
-var privateEndpointName = '${resourcePrefix}-pe'
 var privateDnsZoneName = 'privatelink.azurewebsites.net'
+
+var privateEndpointName = '${resourcePrefix}-pe'
 var privateDnsZoneLinkName = '${resourcePrefix}-dnslink'
 
 resource privateEndpoint 'Microsoft.Network/privateEndpoints@2020-05-01' = {
@@ -30,13 +32,13 @@ resource privateEndpoint 'Microsoft.Network/privateEndpoints@2020-05-01' = {
   }
 }
 
-resource privateDnsZone 'Microsoft.Network/privateDnsZones@2018-09-01' = {
+resource privateDnsZone 'Microsoft.Network/privateDnsZones@2020-06-01' = {
   name: privateDnsZoneName
   location: 'global'
   properties: {}
 }
 
-resource privateDnsZoneName_privateDnsZoneLinkName 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2018-09-01' = {
+resource privateDnsZoneLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2020-06-01' = {
   name: '${privateDnsZone.name}/${privateDnsZoneLinkName}'
   location: 'global'
   properties: {
@@ -47,7 +49,7 @@ resource privateDnsZoneName_privateDnsZoneLinkName 'Microsoft.Network/privateDns
   }
 }
 
-resource privateEndpoint_default 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2020-05-01' = {
+resource privateDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2020-06-01' = {
   name: '${privateEndpoint.name}/default'
   properties: {
     privateDnsZoneConfigs: [

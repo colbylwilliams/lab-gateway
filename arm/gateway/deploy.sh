@@ -13,7 +13,8 @@ die() { echo "${RED}Error: $1${NC}" >&2; exit 1; }
 
 cdir=$(cd -P -- "$(dirname -- "$0")" && pwd -P)
 
-template="$cdir/azuredeploy.json"
+# template="$cdir/azuredeploy.json"
+template="$cdir/gateway.bicep"
 artifactsSource="$cdir/artifacts"
 
 helpText=$(cat << endHelp
