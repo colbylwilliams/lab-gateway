@@ -152,7 +152,7 @@ else
 
   echo "\nDeploying arm template to resource group '$rg' in subscription '$sub'"
   deploy=$( az deployment group create --subscription $sub -g $rg -f "$template" -p adminUsername="$adminUsername" adminPassword="$adminPassword" \
-                      sslCertificate="$sslCertBase64" sslCertificatePassword="$sslCertPassword" sslCertificateThumbprint="$sslCertThumbprint" useVnet="vnet-hub" )
+                      sslCertificate="$sslCertBase64" sslCertificatePassword="$sslCertPassword" sslCertificateThumbprint="$sslCertThumbprint" )
 fi
 
 

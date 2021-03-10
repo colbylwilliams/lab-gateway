@@ -33,8 +33,8 @@ param signCertificatePassword string = ''
 param signCertificateThumbprint string = ''
 
 param useVnet string = ''
-param useGatewaySubnet string = ''
-param useBastionSubnet string = ''
+// param useGatewaySubnet string = ''
+// param useBastionSubnet string = ''
 
 var resourcePrefix = 'rdg${uniqueString(resourceGroup().id)}'
 var vmNamePrefix = take(resourcePrefix, 9)
@@ -69,13 +69,13 @@ resource existingVnet 'Microsoft.Network/virtualNetworks@2020-06-01' existing = 
   name: useVnet
 }
 
-resource existingGatewaySubnet 'Microsoft.Network/virtualNetworks/subnets@2020-06-01' existing = if (!empty(useGatewaySubnet)) {
-  name: useGatewaySubnet
-}
+// resource existingGatewaySubnet 'Microsoft.Network/virtualNetworks/subnets@2020-06-01' existing = if (!empty(useGatewaySubnet)) {
+//   name: useGatewaySubnet
+// }
 
-resource existingBastionSubnet 'Microsoft.Network/virtualNetworks/subnets@2020-06-01' existing = if (!empty(useBastionSubnet)) {
-  name: useBastionSubnet
-}
+// resource existingBastionSubnet 'Microsoft.Network/virtualNetworks/subnets@2020-06-01' existing = if (!empty(useBastionSubnet)) {
+//   name: useBastionSubnet
+// }
 
 resource keyVault 'Microsoft.KeyVault/vaults@2019-09-01' = {
   name: keyVaultName
@@ -282,34 +282,57 @@ resource vnet 'Microsoft.Network/virtualNetworks@2020-06-01' = if (empty(useVnet
         '10.0.0.0/16'
       ]
     }
+    subnets: [
+      {
+        name: snetGatewayName
+        properties: {
+          addressPrefix: '10.0.0.0/24'
+          privateEndpointNetworkPolicies: 'Disabled'
+          privateLinkServiceNetworkPolicies: 'Enabled'
+        }
+      }
+      {
+        name: snetBastionName
+        properties: {
+          addressPrefix: '10.0.1.0/27'
+          privateEndpointNetworkPolicies: 'Disabled'
+          privateLinkServiceNetworkPolicies: 'Enabled'
+        }
+      }
+    ]
     enableDdosProtection: false
     enableVmProtection: false
   }
 }
 
-resource gatewaySubnet 'Microsoft.Network/virtualNetworks/subnets@2020-06-01' = if (empty(useGatewaySubnet)) {
-  name: '${empty(useVnet) ? vnet.name : existingVnet.name}/${snetGatewayName}'
-  properties: {
-    addressPrefix: '10.0.0.0/24'
-    privateEndpointNetworkPolicies: 'Disabled'
-    privateLinkServiceNetworkPolicies: 'Enabled'
-  }
-}
+// resource gatewaySubnet 'Microsoft.Network/virtualNetworks/subnets@2020-06-01' = if (empty(useGatewaySubnet)) {
+// resource gatewaySubnet 'Microsoft.Network/virtualNetworks/subnets@2020-06-01' = {
+//   // name: '${empty(useVnet) ? vnet.name : existingVnet.name}/${snetGatewayName}'
+//   name: '${vnet.name}/${snetGatewayName}'
+//   properties: {
+//     addressPrefix: '10.0.0.0/24'
+//     privateEndpointNetworkPolicies: 'Disabled'
+//     privateLinkServiceNetworkPolicies: 'Enabled'
+//   }
+// }
 
-resource bastionSubnet 'Microsoft.Network/virtualNetworks/subnets@2020-06-01' = if (empty(useBastionSubnet)) {
-  name: '${empty(useVnet) ? vnet.name : existingVnet.name}/${snetBastionName}'
-  properties: {
-    addressPrefix: '10.0.1.0/27'
-    privateEndpointNetworkPolicies: 'Disabled'
-    privateLinkServiceNetworkPolicies: 'Enabled'
-  }
-}
+// // resource bastionSubnet 'Microsoft.Network/virtualNetworks/subnets@2020-06-01' = if (empty(useBastionSubnet)) {
+// resource bastionSubnet 'Microsoft.Network/virtualNetworks/subnets@2020-06-01' = {
+//   // name: '${empty(useVnet) ? vnet.name : existingVnet.name}/${snetBastionName}'
+//   name: '${vnet.name}/${snetBastionName}'
+//   properties: {
+//     addressPrefix: '10.0.1.0/27'
+//     privateEndpointNetworkPolicies: 'Disabled'
+//     privateLinkServiceNetworkPolicies: 'Enabled'
+//   }
+// }
 
 resource publicIPAddress 'Microsoft.Network/publicIPAddresses@2020-06-01' = {
   name: publicIPAddressName
   location: resourceGroup().location
   sku: {
-    name: 'Standard'
+    // name: 'Standard'
+    name: 'Basic'
   }
   properties: {
     publicIPAllocationMethod: 'Static'
@@ -346,7 +369,8 @@ resource bastionHost 'Microsoft.Network/bastionHosts@2020-06-01' = {
         name: 'ipconfig'
         properties: {
           subnet: {
-            id: empty(useBastionSubnet) ? bastionSubnet.id : existingBastionSubnet.id
+            // id: empty(useBastionSubnet) ? bastionSubnet.id : existingBastionSubnet.id
+            id: resourceId('Microsoft.Network/virtualNetworks/subnets', vnet.name, snetBastionName) // bastionSubnet.id
           }
           publicIPAddress: {
             id: bastionIPAddress.id
@@ -355,13 +379,17 @@ resource bastionHost 'Microsoft.Network/bastionHosts@2020-06-01' = {
       }
     ]
   }
+  dependsOn: [
+    vnet
+  ]
 }
 
 resource loadBalancer 'Microsoft.Network/loadBalancers@2020-06-01' = {
   name: loadBalancerName
   location: resourceGroup().location
   sku: {
-    name: 'Standard'
+    // name: 'Standard'
+    name: 'Basic'
   }
   properties: {
     frontendIPConfigurations: [
@@ -552,7 +580,9 @@ resource vmss 'Microsoft.Compute/virtualMachineScaleSets@2020-06-01' = {
                   properties: {
                     privateIPAddressVersion: 'IPv4'
                     subnet: {
-                      id: empty(useGatewaySubnet) ? gatewaySubnet.id : existingGatewaySubnet.id
+                      // id: empty(useGatewaySubnet) ? gatewaySubnet.id : existingGatewaySubnet.id
+                      // id: gatewaySubnet.id
+                      id: resourceId('Microsoft.Network/virtualNetworks/subnets', vnet.name, snetGatewayName) // bastionSubnet.id
                     }
                     loadBalancerBackendAddressPools: loadBalancer.properties.backendAddressPools
                   }
@@ -590,15 +620,16 @@ resource vmss 'Microsoft.Compute/virtualMachineScaleSets@2020-06-01' = {
   }
 }
 
-// module privateEndpointDeployment 'privateEndpoint.bicep' = {
-//   name: 'privateEndpoint'
-//   params: {
-//     resourcePrefix: resourcePrefix
-//     site: functionApp.id
-//     vnet: empty(useVnet) ? vnet.id : existingVnet.id
-//     subnet: empty(useGatewaySubnet) ? gatewaySubnet.id : existingGatewaySubnet.id
-//   }
-// }
+module privateEndpointDeployment 'privateEndpoint.bicep' = {
+  name: 'privateEndpoint'
+  params: {
+    resourcePrefix: resourcePrefix
+    site: functionApp.id
+    vnet: empty(useVnet) ? vnet.id : existingVnet.id
+    // subnet: empty(useGatewaySubnet) ? gatewaySubnet.id : existingGatewaySubnet.id
+    subnet: resourceId('Microsoft.Network/virtualNetworks/subnets', vnet.name, snetGatewayName)
+  }
+}
 
 output artifactsStorage object = {
   account: storageAccount.name
