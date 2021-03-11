@@ -46,4 +46,16 @@ resource vnet 'Microsoft.DevTestLab/labs/virtualnetworks@2018-09-15' = if (setVn
   }
 }
 
-output vaultName string = last(split(lab.properties.vaultName, '/'))
+module secret 'secret.bicep' = if (setGateway) {
+  name: 'secret'
+  params: {
+    name: 'gateway'
+    vaultName: last(split(lab.properties.vaultName, '/'))
+    value: gatewayToken
+  }
+}
+
+output name string = name
+// output rg string = resourceGroup().name
+// output location string = resourceGroup().location
+output vault string = last(split(lab.properties.vaultName, '/'))

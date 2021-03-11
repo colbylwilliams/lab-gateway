@@ -1,13 +1,13 @@
 targetScope = 'subscription'
 
-param location string
+param name string = 'network'
 param initLabs bool = false
+param location string = deployment().location
 // param initGateway bool = false
 
 param hub object = {
   name: 'vnet-hub'
   addressPrefix: '10.0.0.0/20'
-  resourceGroup: 'NetworkHub'
 }
 
 param spoke1 object = {
@@ -16,7 +16,6 @@ param spoke1 object = {
   subnetName: 'snet-spoke-resources'
   subnetPrefix: '10.100.0.0/16'
   subnetNsgName: 'nsg-spoke-one-resources'
-  resourceGroup: 'NetworkSpokeOne'
 }
 
 param spoke2 object = {
@@ -25,7 +24,6 @@ param spoke2 object = {
   subnetName: 'snet-spoke-resources'
   subnetPrefix: '10.200.0.0/16'
   subnetNsgName: 'nsg-spoke-two-resources'
-  resourceGroup: 'NetworkSpokeTwo'
 }
 
 param firewall object = {
@@ -37,17 +35,17 @@ param firewall object = {
 }
 
 resource hbrg 'Microsoft.Resources/resourceGroups@2020-06-01' = {
-  name: hub.resourceGroup
+  name: '${name}-hub'
   location: location
 }
 
 resource spk1rg 'Microsoft.Resources/resourceGroups@2020-06-01' = {
-  name: spoke1.resourceGroup
+  name: '${name}-spoke-one'
   location: location
 }
 
 resource spk2rg 'Microsoft.Resources/resourceGroups@2020-06-01' = {
-  name: spoke2.resourceGroup
+  name: '${name}-spoke-two'
   location: location
 }
 

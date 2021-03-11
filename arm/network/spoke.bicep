@@ -13,19 +13,19 @@ resource nsg 'Microsoft.Network/networkSecurityGroups@2020-06-01' = {
   location: location
   properties: {
     securityRules: [
-      {
-        name: 'DenyAllInBound'
-        properties: {
-          protocol: 'Tcp'
-          sourcePortRange: '*'
-          sourceAddressPrefix: '*'
-          destinationPortRange: '*'
-          destinationAddressPrefix: '*'
-          access: 'Deny'
-          priority: 1000
-          direction: 'Inbound'
-        }
-      }
+      // {
+      //   name: 'DenyAllInBound'
+      //   properties: {
+      //     protocol: 'Tcp'
+      //     sourcePortRange: '*'
+      //     sourceAddressPrefix: '*'
+      //     destinationPortRange: '*'
+      //     destinationAddressPrefix: '*'
+      //     access: 'Deny'
+      //     priority: 1000
+      //     direction: 'Inbound'
+      //   }
+      // }
     ]
   }
 }

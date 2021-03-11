@@ -2,6 +2,9 @@ param location string = resourceGroup().location
 
 param name string
 param addressPrefix string
+param gatewayIpAddress string = '10.0.0.4'
+
+param otherSubnets array = []
 
 param firewall object = {
   name: 'AzureFirewall'
@@ -20,21 +23,14 @@ resource vnet 'Microsoft.Network/virtualNetworks@2020-06-01' = {
         addressPrefix
       ]
     }
-    // subnets: [
-    //   {
-    //     name: firewall.subnetName
-    //     properties: {
-    //       addressPrefix: firewall.subnetPrefix
-    //     }
-    //   }
-    // ]
-  }
-}
-
-resource fwsnet 'Microsoft.Network/virtualNetworks/subnets@2020-06-01' = {
-  name: '${vnet.name}/${firewall.subnetName}'
-  properties: {
-    addressPrefix: firewall.subnetPrefix
+    subnets: concat([
+      {
+        name: firewall.subnetName
+        properties: {
+          addressPrefix: firewall.subnetPrefix
+        }
+      }
+    ], otherSubnets)
   }
 }
 
@@ -66,8 +62,93 @@ resource fw 'Microsoft.Network/azureFirewalls@2020-06-01' = {
             id: fwpip.id
           }
           subnet: {
-            id: fwsnet.id
+            id: resourceId('Microsoft.Network/virtualNetworks/subnets', vnet.name, firewall.subnetName)
           }
+        }
+      }
+    ]
+    natRuleCollections: [
+      {
+        name: 'GatewayDNAT'
+        properties: {
+          priority: 200
+          action: {
+            type: 'Dnat'
+          }
+          rules: [
+            {
+              name: 'GW-TCP-80'
+              protocols: [
+                'TCP'
+              ]
+              translatedAddress: gatewayIpAddress
+              translatedPort: '80'
+              sourceAddresses: [
+                '*'
+              ]
+              sourceIpGroups: []
+              destinationAddresses: [
+                fwpip.properties.ipAddress
+              ]
+              destinationPorts: [
+                '80'
+              ]
+            }
+            {
+              name: 'GW-TCP-443'
+              protocols: [
+                'TCP'
+              ]
+              translatedAddress: gatewayIpAddress
+              translatedPort: '443'
+              sourceAddresses: [
+                '*'
+              ]
+              sourceIpGroups: []
+              destinationAddresses: [
+                fwpip.properties.ipAddress
+              ]
+              destinationPorts: [
+                '443'
+              ]
+            }
+            {
+              name: 'GW-UDP-3391'
+              protocols: [
+                'UDP'
+              ]
+              translatedAddress: gatewayIpAddress
+              translatedPort: '3391'
+              sourceAddresses: [
+                '*'
+              ]
+              sourceIpGroups: []
+              destinationAddresses: [
+                fwpip.properties.ipAddress
+              ]
+              destinationPorts: [
+                '3391'
+              ]
+            }
+            {
+              name: 'GW-TCP-3389'
+              protocols: [
+                'TCP'
+              ]
+              translatedAddress: gatewayIpAddress
+              translatedPort: '3389'
+              sourceAddresses: [
+                '*'
+              ]
+              sourceIpGroups: []
+              destinationAddresses: [
+                fwpip.properties.ipAddress
+              ]
+              destinationPorts: [
+                '3389'
+              ]
+            }
+          ]
         }
       }
     ]
@@ -92,5 +173,6 @@ resource fwroutetable 'Microsoft.Network/routeTables@2020-06-01' = {
   }
 }
 
+output pipId string = fwpip.id
 output vnetId string = vnet.id
 output routeTableId string = fwroutetable.id

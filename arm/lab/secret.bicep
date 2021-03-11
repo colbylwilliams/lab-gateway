@@ -4,7 +4,7 @@ param value string
 param name string
 param vaultName string
 
-resource secret 'Microsoft.KeyVault/vaults/secrets@2020-04-01-preview' = {
+resource secret 'Microsoft.KeyVault/vaults/secrets@2019-09-01' = {
   name: '${vaultName}/${name}'
   properties: {
     value: value
