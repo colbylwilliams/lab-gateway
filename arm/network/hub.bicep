@@ -67,6 +67,37 @@ resource fw 'Microsoft.Network/azureFirewalls@2020-06-01' = {
         }
       }
     ]
+    networkRuleCollections: [
+      {
+        name: 'AllowAll'
+        properties: {
+          priority: 200
+          action: {
+            type: 'Allow'
+          }
+          rules: [
+            {
+              name: 'AllowAll'
+              protocols: [
+                'TCP'
+              ]
+              sourceAddresses: [
+                '*'
+              ]
+              destinationAddresses: [
+                '*'
+              ]
+              sourceIpGroups: []
+              destinationIpGroups: []
+              destinationFqdns: []
+              destinationPorts: [
+                '*'
+              ]
+            }
+          ]
+        }
+      }
+    ]
     natRuleCollections: [
       {
         name: 'GatewayDNAT'
@@ -128,24 +159,6 @@ resource fw 'Microsoft.Network/azureFirewalls@2020-06-01' = {
               ]
               destinationPorts: [
                 '3391'
-              ]
-            }
-            {
-              name: 'GW-TCP-3389'
-              protocols: [
-                'TCP'
-              ]
-              translatedAddress: gatewayIpAddress
-              translatedPort: '3389'
-              sourceAddresses: [
-                '*'
-              ]
-              sourceIpGroups: []
-              destinationAddresses: [
-                fwpip.properties.ipAddress
-              ]
-              destinationPorts: [
-                '3389'
               ]
             }
           ]
