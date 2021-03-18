@@ -13,9 +13,8 @@ die() { echo "${RED}Error: $1${NC}" >&2; exit 1; }
 
 cdir=$(cd -P -- "$(dirname -- "$0")" && pwd -P)
 
-# template="$cdir/azuredeploy.json"
 template="$cdir/gateway.bicep"
-artifactsSource="$cdir/artifacts"
+artifactsSource="$cdir/../artifacts"
 
 helpText=$(cat << endHelp
 
@@ -45,6 +44,12 @@ Options:
   -c  Path to the SSL certificate .pfx or .p12 file.
 
   -k  Password used to export the SSL certificate (for installation).
+
+  -v  Vnet to use for the Gateway.
+
+  -w  Public IP Address Resource ID.
+
+  -r  Private IP Address.
 
 
   Optional
@@ -80,7 +85,7 @@ instances=1
 sub=$( az account show --query id -o tsv )
 
 # get arg values
-while getopts ":hs:g:l:u:p:c:k:x:t:i:" opt; do
+while getopts ":hs:g:l:u:p:c:k:x:t:i:v:w:r:" opt; do
     case $opt in
         s)  sub=$OPTARG;;
         g)  rg=$OPTARG;;
@@ -92,6 +97,9 @@ while getopts ":hs:g:l:u:p:c:k:x:t:i:" opt; do
         x)  signCert=$OPTARG;;
         t)  signCertPassword=$OPTARG;;
         i)  instances=$OPTARG;;
+        v)  vnetId=$OPTARG;;
+        w)  publicIp=$OPTARG;;
+        r)  privateIp=$OPTARG;;
         h)  echo "$helpText" >&2; exit 0;;
         \?) die "Invalid option -$OPTARG \n$helpText";;
         :)  die "Option -$OPTARG requires an argument \n$helpText.";;
@@ -147,12 +155,14 @@ if [ ! -z "$signCert" ]; then
   echo "\nDeploying arm template to resource group '$rg' in subscription '$sub'"
   deploy=$( az deployment group create --subscription $sub -g $rg -f "$template" -p adminUsername="$adminUsername" adminPassword="$adminPassword" \
                       sslCertificate="$sslCertBase64" sslCertificatePassword="$sslCertPassword" sslCertificateThumbprint="$sslCertThumbprint" \
-                      signCertificate="$signCertBase64" signCertificatePassword="$signCertPassword" signCertificateThumbprint="$signCertThumbprint" )
+                      signCertificate="$signCertBase64" signCertificatePassword="$signCertPassword" signCertificateThumbprint="$signCertThumbprint" \
+                      vnet="$vnetId" publicIPAddress="$publicIp" privateIPAddress="$privateIp" )
 else
 
   echo "\nDeploying arm template to resource group '$rg' in subscription '$sub'"
   deploy=$( az deployment group create --subscription $sub -g $rg -f "$template" -p adminUsername="$adminUsername" adminPassword="$adminPassword" \
-                      sslCertificate="$sslCertBase64" sslCertificatePassword="$sslCertPassword" sslCertificateThumbprint="$sslCertThumbprint" )
+                      sslCertificate="$sslCertBase64" sslCertificatePassword="$sslCertPassword" sslCertificateThumbprint="$sslCertThumbprint" \
+                      vnet="$vnetId" publicIPAddress="$publicIp" privateIPAddress="$privateIp" )
 fi
 
 
@@ -174,7 +184,6 @@ fi
 
 gateway=$( echo $outputs | jq '.gateway.value' )
 gatewayIP=$( echo $gateway | jq -r '.ip' )
-gatewayFQDN=$( echo $gateway | jq -r '.fqdn' )
 gatewayScaleSet=$( echo $gateway | jq -r '.scaleSet' )
 gatewayFunction=$( echo $gateway | jq -r '.function' )
 
@@ -198,7 +207,6 @@ echo "\nDone."
 if [ ! -z "$sslCertCommonName" ]; then
   echo "\n\n${GREEN}Register Remote Desktop Gateway with your DNS using one of the following two options:${NC}\n"
   echo "${GREEN}  - Create an A-Record:     $sslCertCommonName -> $gatewayIP ${NC}"
-  echo "${GREEN}  - Create an CNAME-Record: $sslCertCommonName -> $gatewayFQDN ${NC}"
   if [ ! -z "$gatewayToken" ]; then
     echo "\n\n${GREEN}Use the following to configure your labs to use the gateway:${NC}\n"
     echo "${GREEN}  - Gateway hostname:     $sslCertCommonName ${NC}"

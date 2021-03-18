@@ -5,6 +5,9 @@ param initLabs bool = false
 param location string = deployment().location
 // param initGateway bool = false
 
+param gatewaySubnetName string = 'RDGatewaySubnet'
+param bastionSubnetName string = 'AzureBastionSubnet'
+
 param hub object = {
   name: 'vnet-hub'
   addressPrefix: '10.0.0.0/20'
@@ -34,6 +37,25 @@ param firewall object = {
   routeName: 'r-nexthop-to-fw'
 }
 
+var gatewaySubnets = [
+  {
+    name: gatewaySubnetName
+    properties: {
+      addressPrefix: '10.0.0.0/24'
+      privateEndpointNetworkPolicies: 'Disabled'
+      privateLinkServiceNetworkPolicies: 'Enabled'
+    }
+  }
+  {
+    name: bastionSubnetName
+    properties: {
+      addressPrefix: '10.0.1.0/27'
+      privateEndpointNetworkPolicies: 'Disabled'
+      privateLinkServiceNetworkPolicies: 'Enabled'
+    }
+  }
+]
+
 resource hbrg 'Microsoft.Resources/resourceGroups@2020-06-01' = {
   name: '${name}-hub'
   location: location
@@ -56,6 +78,7 @@ module hb 'hub.bicep' = {
     name: hub.name
     addressPrefix: hub.addressPrefix
     firewall: firewall
+    otherSubnets: gatewaySubnets
   }
 }
 

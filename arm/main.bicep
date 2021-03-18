@@ -205,8 +205,8 @@ module gateway 'gateway/gateway.bicep' = {
     sslCertificateThumbprint: sslCertificateThumbprint
     tokenLifetime: tokenLifetime
     utcValue: utcValue
-    useVnet: last(split(hb.outputs.vnetId, '/'))
-    useIpAddress: last(split(hb.outputs.pipId, '/'))
+    vnet: hb.outputs.vnetId
+    privateIPAddress: '10.0.0.4'
   }
 }
 
