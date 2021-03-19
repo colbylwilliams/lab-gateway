@@ -195,7 +195,6 @@ module gateway 'gateway/gateway.bicep' = {
   params: {
     adminPassword: adminPassword
     adminUsername: adminUsername
-    bastionSubnetName: bastionSubnetName
     gatewaySubnetName: gatewaySubnetName
     signCertificate: signCertificate
     signCertificatePassword: signCertificatePassword
@@ -219,7 +218,6 @@ output gateway object = {
   scaleSet: gateway.outputs.gateway.scaleSet
   function: gateway.outputs.gateway.function
   ip: gateway.outputs.gateway.ip
-  // fqdn: gateway.outputs.gateway.fqdn
 }
 
 output rg string = hbrg.name

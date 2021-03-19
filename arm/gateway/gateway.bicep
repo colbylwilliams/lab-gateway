@@ -37,7 +37,6 @@ param publicIPAddress string = ''
 param privateIPAddress string = ''
 
 param gatewaySubnetName string = 'RDGatewaySubnet'
-param bastionSubnetName string = 'AzureBastionSubnet'
 
 var resourcePrefix = 'rdg${uniqueString(resourceGroup().id)}'
 
@@ -103,7 +102,6 @@ module gwVnet 'vnet.bicep' = {
     ]
     gatewaySubnetName: gatewaySubnetName
     gatewaySubnetAddressPrefix: '10.0.0.0/24'
-    bastionSubnetName: bastionSubnetName
     bastionSubnetAddressPrefix: '10.0.1.0/27'
   }
 }
@@ -116,24 +114,33 @@ module bastion 'bastion.bicep' = {
   }
 }
 
+module lb 'loadbalancer.bicep' = {
+  name: 'loadBalancer'
+  params: {
+    resourcePrefix: resourcePrefix
+    publicIPAddress: publicIPAddress
+    privateIPAddress: privateIPAddress
+    subnet: gwVnet.outputs.gatewaySubnet
+  }
+}
+
 module vmss 'vmss.bicep' = {
   name: 'vmss'
   params: {
     resourcePrefix: resourcePrefix
     adminUsername: adminUsername
     adminPassword: adminPassword
-    publicIPAddress: publicIPAddress
-    privateIPAddress: privateIPAddress
     storageAccountName: storage.outputs.accountName
     storageAccountKey: storage.outputs.accountKey
     storageArtifactsEndpoint: storage.outputs.artifactsEndpoint
-    keyVault: kv.outputs.id
     subnet: gwVnet.outputs.gatewaySubnet
+    keyVault: kv.outputs.id
     functionHostName: functionApp.outputs.defaultHostName
     sslCertThumbprint: sslCert.outputs.thumbprint
     sslCertSecretUriWithVersion: sslCert.outputs.secretUriWithVersion
     signCertThumbprint: signCert.outputs.thumbprint
     signCertSecretUriWithVersion: signCert.outputs.secretUriWithVersion
+    backendAddressPools: lb.outputs.backendAddressPools
   }
 }
 
@@ -155,5 +162,5 @@ output artifactsStorage object = {
 output gateway object = {
   scaleSet: vmss.outputs.name
   function: functionApp.outputs.name
-  ip: vmss.outputs.ip
+  ip: lb.outputs.ip
 }

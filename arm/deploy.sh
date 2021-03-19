@@ -173,7 +173,6 @@ fi
 
 gateway=$( echo $outputs | jq '.gateway.value' )
 gatewayIP=$( echo $gateway | jq -r '.ip' )
-# gatewayFQDN=$( echo $gateway | jq -r '.fqdn' )
 gatewayScaleSet=$( echo $gateway | jq -r '.scaleSet' )
 gatewayFunction=$( echo $gateway | jq -r '.function' )
 
@@ -214,7 +213,6 @@ echo "\nDone."
 if [ ! -z "$sslCertCommonName" ]; then
   echo "\n\n${GREEN}Register Remote Desktop Gateway with your DNS using one of the following two options:${NC}\n"
   echo "${GREEN}  - Create an A-Record:     $sslCertCommonName -> $gatewayIP ${NC}"
-  # echo "${GREEN}  - Create an CNAME-Record: $sslCertCommonName -> $gatewayFQDN ${NC}"
   if [ ! -z "$gatewayToken" ]; then
     echo "\n\n${GREEN}Use the following to configure your labs to use the gateway:${NC}\n"
     echo "${GREEN}  - Gateway hostname:     $sslCertCommonName ${NC}"

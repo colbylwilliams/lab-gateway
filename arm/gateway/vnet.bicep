@@ -3,15 +3,17 @@ param resourcePrefix string
 param vnet string = ''
 
 param addressPrefixes array
-param gatewaySubnetName string
+
+param gatewaySubnetName string = 'RDGatewaySubnet'
 param gatewaySubnetAddressPrefix string
 
-param bastionSubnetName string
 param bastionSubnetAddressPrefix string
 
 var vnetName = empty(vnet) ? '${resourcePrefix}-vnet' : last(split(vnet, '/'))
 var vnetRg = empty(vnet) ? '' : first(split(last(split(vnet, '/resourceGroups/')), '/'))
 var vnetId = empty(vnet) ? resourceId('Microsoft.Network/virtualNetworks', vnetName) : vnet
+
+var bastionSubnetName = 'AzureBastionSubnet'
 
 resource rg_vnet_existing 'Microsoft.Resources/resourceGroups@2020-06-01' existing = if (!empty(vnet)) {
   name: vnetRg
@@ -34,7 +36,7 @@ resource vnet_new 'Microsoft.Network/virtualNetworks@2020-06-01' = if (empty(vne
       {
         name: gatewaySubnetName
         properties: {
-          addressPrefix: gatewaySubnetAddressPrefix // '10.0.0.0/24'
+          addressPrefix: gatewaySubnetAddressPrefix
           privateEndpointNetworkPolicies: 'Disabled'
           privateLinkServiceNetworkPolicies: 'Enabled'
         }
@@ -42,7 +44,7 @@ resource vnet_new 'Microsoft.Network/virtualNetworks@2020-06-01' = if (empty(vne
       {
         name: bastionSubnetName
         properties: {
-          addressPrefix: bastionSubnetAddressPrefix // '10.0.1.0/27'
+          addressPrefix: bastionSubnetAddressPrefix
           privateEndpointNetworkPolicies: 'Disabled'
           privateLinkServiceNetworkPolicies: 'Enabled'
         }
