@@ -2,3 +2,5 @@
 *.pfx
 *.p12
 *.msi
+
+test.bicep
