@@ -128,13 +128,14 @@ sslCertPolicy='{
         "contentType": "application/x-pkcs12"
     },
     "x509CertificateProperties": {
-        "ekus": [ "1.3.6.1.5.5.7.3.1, "1.3.6.1.5.5.7.3.2" ],
+        "ekus": [ "1.3.6.1.5.5.7.3.1", "1.3.6.1.5.5.7.3.2" ],
         "keyUsage": [ "digitalSignature", "keyEncipherment" ],
-        "subject": '"CN=$hostName"',
+        "subject": "'"CN=$hostName"'",
         "subjectAlternativeNames": {
-        "dnsNames": [
-          '"$hostName"'
-        ],
+            "dnsNames": [
+                "'"$hostName"'"
+            ]
+        },
         "validityInMonths": 12
     }
 }'
