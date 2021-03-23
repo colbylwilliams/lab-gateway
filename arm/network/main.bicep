@@ -36,7 +36,7 @@ param firewall object = {
   routeName: 'r-nexthop-to-fw'
 }
 
-var gatewaySubnets = [
+var subnets = [
   {
     name: gatewaySubnetName
     properties: {
@@ -49,6 +49,22 @@ var gatewaySubnets = [
     name: 'AzureBastionSubnet'
     properties: {
       addressPrefix: '10.0.1.0/27'
+      privateEndpointNetworkPolicies: 'Disabled'
+      privateLinkServiceNetworkPolicies: 'Enabled'
+    }
+  }
+  {
+    name: 'AppGatewaySubnet'
+    properties: {
+      addressPrefix: '10.0.2.0/26'
+      privateEndpointNetworkPolicies: 'Disabled'
+      privateLinkServiceNetworkPolicies: 'Enabled'
+    }
+  }
+  {
+    name: firewall.subnetName
+    properties: {
+      addressPrefix: firewall.subnetPrefix
       privateEndpointNetworkPolicies: 'Disabled'
       privateLinkServiceNetworkPolicies: 'Enabled'
     }
@@ -76,8 +92,19 @@ module hb 'hub.bicep' = {
   params: {
     name: hub.name
     addressPrefix: hub.addressPrefix
-    firewall: firewall
-    otherSubnets: gatewaySubnets
+    subnets: subnets
+  }
+}
+
+module fw 'firewall.bicep' = {
+  name: 'firewall'
+  scope: hbrg
+  params: {
+    vnetName: hb.outputs.vnetName
+    name: firewall.name
+    publicIPAddressName: firewall.publicIPAddressName
+    subnetName: firewall.subnetName
+    routeName: firewall.routeName
   }
 }
 
@@ -90,7 +117,7 @@ module spk1 'spoke.bicep' = {
     subnetName: spoke1.subnetName
     subnetPrefix: spoke1.subnetPrefix
     subnetNsgName: spoke1.subnetNsgName
-    routeTableId: hb.outputs.routeTableId
+    routeTableId: fw.outputs.routeTableId
   }
 }
 
@@ -103,7 +130,7 @@ module spk2 'spoke.bicep' = {
     subnetName: spoke2.subnetName
     subnetPrefix: spoke2.subnetPrefix
     subnetNsgName: spoke2.subnetNsgName
-    routeTableId: hb.outputs.routeTableId
+    routeTableId: fw.outputs.routeTableId
   }
 }
 

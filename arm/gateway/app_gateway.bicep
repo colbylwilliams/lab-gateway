@@ -5,6 +5,7 @@ param apiHost string
 param gatewayHost string
 
 param rootCertData string
+param rootSecretUriWithVersion string
 
 @minLength(1)
 @description('Certificate as Base64 encoded string.')
@@ -14,20 +15,107 @@ param sslCertificate string
 @description('Certificate password for installation.')
 param sslCertificatePassword string
 
-// param publicIPAddress string = ''
+param publicIPAddress string = ''
 // param privateIPAddress string = ''
 param privateIPAddress string
 
 // var backendName = 'gatewayBackend'
 // var frontendName = 'gatewayFrontend'
 
-// var publicIPAddressName = empty(publicIPAddress) ? '${resourcePrefix}-fw-pip' : last(split(publicIPAddress, '/'))
-var publicIPAddressName = '${resourcePrefix}-gw-pip'
+var publicIPAddressName = empty(publicIPAddress) ? '${resourcePrefix}-gw-pip' : last(split(publicIPAddress, '/'))
+// var publicIPAddressName = '${resourcePrefix}-gw-pip'
 
 var appGatewayName = '${resourcePrefix}-gw'
 
-// resource ip 'Microsoft.Network/publicIPAddresses@2020-06-01' = if (createPublicIpAddress) {
-resource pip 'Microsoft.Network/publicIPAddresses@2020-06-01' = {
+var gateway = {
+  frontendIp: {
+    public: {
+      name: 'publicFrontendIp'
+      ref: {
+        id: resourceId('Microsoft.Network/applicationGateways/frontendIPConfigurations/', appGatewayName, 'publicFrontendIp')
+      }
+    }
+    private: {
+      name: 'privateFrontendIp'
+      ref: {
+        id: resourceId('Microsoft.Network/applicationGateways/frontendIPConfigurations/', appGatewayName, 'privateFrontendIp')
+      }
+    }
+  }
+  httpListener: {
+    public: {
+      name: 'publicHttpListener'
+      ref: {
+        id: resourceId('Microsoft.Network/applicationGateways/httpListeners/', appGatewayName, 'publicHttpListener')
+      }
+    }
+    private: {
+      name: 'privateHttpListener'
+      ref: {
+        id: resourceId('Microsoft.Network/applicationGateways/httpListeners/', appGatewayName, 'privateHttpListener')
+      }
+    }
+  }
+  routingRule: {
+    public: {
+      name: 'publicRoutingRule'
+      urlPathMapRef: {
+        id: resourceId('Microsoft.Network/applicationGateways/urlPathMaps/', appGatewayName, 'publicRoutingRule')
+      }
+    }
+    private: {
+      name: 'privateRoutingRule'
+      urlPathMapRef: {
+        id: resourceId('Microsoft.Network/applicationGateways/urlPathMaps/', appGatewayName, 'privateRoutingRule')
+      }
+    }
+  }
+  backendAddressPool: {
+    name: 'gatewayBackend'
+    ref: {
+      id: resourceId('Microsoft.Network/applicationGateways/backendAddressPools/', appGatewayName, 'gatewayBackend')
+    }
+  }
+  backendHttpSettings: {
+    name: 'gatewayHttpSettings'
+    ref: {
+      id: resourceId('Microsoft.Network/applicationGateways/backendHttpSettingsCollection/', appGatewayName, 'gatewayHttpSettings')
+    }
+  }
+  healthCheckProbe: {
+    name: 'gatewayHealthCheck'
+    ref: {
+      id: resourceId('Microsoft.Network/applicationGateways/probes', appGatewayName, 'gatewayHealthCheck')
+    }
+  }
+}
+
+var api = {
+  backendAddressPool: {
+    name: 'apiBackend'
+    ref: {
+      id: resourceId('Microsoft.Network/applicationGateways/backendAddressPools/', appGatewayName, 'apiBackend')
+    }
+  }
+  backendHttpSettings: {
+    name: 'apiHttpSettings'
+    ref: {
+      id: resourceId('Microsoft.Network/applicationGateways/backendHttpSettingsCollection/', appGatewayName, 'apiHttpSettings')
+    }
+  }
+  healthCheckProbe: {
+    name: 'apiHealthCheck'
+    ref: {
+      id: resourceId('Microsoft.Network/applicationGateways/probes', appGatewayName, 'apiHealthCheck')
+    }
+  }
+}
+
+resource pip_existing 'Microsoft.Network/publicIPAddresses@2020-06-01' existing = if (!empty(publicIPAddress)) {
+  name: publicIPAddressName
+}
+
+resource pip_new 'Microsoft.Network/publicIPAddresses@2020-06-01' = if (empty(publicIPAddress)) {
   name: publicIPAddressName
   location: resourceGroup().location
   sku: {
@@ -43,7 +131,7 @@ resource pip 'Microsoft.Network/publicIPAddresses@2020-06-01' = {
   }
 }
 
-resource gateway 'Microsoft.Network/applicationGateways@2020-06-01' = {
+resource gw 'Microsoft.Network/applicationGateways@2020-06-01' = {
   name: appGatewayName
   location: resourceGroup().location
   properties: {
@@ -64,18 +152,18 @@ resource gateway 'Microsoft.Network/applicationGateways@2020-06-01' = {
     ]
     frontendIPConfigurations: [
       {
-        name: 'publicFrontendIp'
+        name: gateway.frontendIp.public.name
         properties: {
           privateIPAllocationMethod: 'Dynamic'
           publicIPAddress: {
-            id: pip.id
+            id: empty(publicIPAddress) ? pip_new.id : pip_existing.id
           }
         }
       }
       {
-        name: 'privateFrontendIp'
+        name: gateway.frontendIp.private.name
         properties: {
-          privateIPAddress: privateIPAddress // '10.0.2.5'
+          privateIPAddress: privateIPAddress
           privateIPAllocationMethod: 'Static'
           subnet: {
             id: subnet
@@ -117,7 +205,7 @@ resource gateway 'Microsoft.Network/applicationGateways@2020-06-01' = {
     ]
     backendHttpSettingsCollection: [
       {
-        name: 'gatewayHttpSettings'
+        name: gateway.backendHttpSettings.name
         properties: {
           port: 443
           protocol: 'Https'
@@ -125,9 +213,7 @@ resource gateway 'Microsoft.Network/applicationGateways@2020-06-01' = {
           hostName: gatewayHost
           requestTimeout: 20
           pickHostNameFromBackendAddress: false
-          probe: {
-            id: resourceId('Microsoft.Network/applicationGateways/probes', appGatewayName, 'gatewayHealthCheck')
-          }
+          probe: gateway.healthCheckProbe.ref
           trustedRootCertificates: [
             {
               id: resourceId('Microsoft.Network/applicationGateways/trustedRootCertificates/', appGatewayName, gatewayHost)
@@ -136,29 +222,25 @@ resource gateway 'Microsoft.Network/applicationGateways@2020-06-01' = {
         }
       }
       {
-        name: 'apiHttpSettings'
+        name: api.backendHttpSettings.name
         properties: {
           port: 443
           protocol: 'Https'
           cookieBasedAffinity: 'Disabled'
           requestTimeout: 20
           pickHostNameFromBackendAddress: true
-          probe: {
-            id: resourceId('Microsoft.Network/applicationGateways/probes', appGatewayName, 'apiHealthCheck')
-          }
+          probe: api.healthCheckProbe.ref
         }
       }
     ]
     httpListeners: [
       {
-        name: 'publicHttpListener'
+        name: gateway.httpListener.public.name
         properties: {
           protocol: 'Https'
           // hostName: host
           // requireServerNameIndication:false
-          frontendIPConfiguration: {
-            id: resourceId('Microsoft.Network/applicationGateways/frontendIPConfigurations/', appGatewayName, 'publicFrontendIp')
-          }
+          frontendIPConfiguration: gateway.frontendIp.public.ref
           frontendPort: {
             id: resourceId('Microsoft.Network/applicationGateways/frontendPorts/', appGatewayName, 'Port443')
           }
@@ -168,14 +250,12 @@ resource gateway 'Microsoft.Network/applicationGateways@2020-06-01' = {
         }
       }
       {
-        name: 'privateHttpListener'
+        name: gateway.httpListener.private.name
         properties: {
           protocol: 'Http'
           // hostName: host
           // requireServerNameIndication:false
-          frontendIPConfiguration: {
-            id: resourceId('Microsoft.Network/applicationGateways/frontendIPConfigurations/', appGatewayName, 'privateFrontendIp')
-          }
+          frontendIPConfiguration: gateway.frontendIp.private.ref
           frontendPort: {
             id: resourceId('Microsoft.Network/applicationGateways/frontendPorts/', appGatewayName, 'Port80')
           }
@@ -185,27 +265,19 @@ resource gateway 'Microsoft.Network/applicationGateways@2020-06-01' = {
     ]
     requestRoutingRules: [
       {
-        name: 'publicRoutingRule'
+        name: gateway.routingRule.public.name
         properties: {
           ruleType: 'PathBasedRouting'
-          httpListener: {
-            id: resourceId('Microsoft.Network/applicationGateways/httpListeners/', appGatewayName, 'publicHttpListener')
-          }
-          urlPathMap: {
-            id: resourceId('Microsoft.Network/applicationGateways/urlPathMaps/', appGatewayName, 'publicRoutingRule')
-          }
+          httpListener: gateway.httpListener.public.ref
+          urlPathMap: gateway.routingRule.public.urlPathMapRef
         }
       }
       {
-        name: 'privateRoutingRule'
+        name: gateway.routingRule.private.name
         properties: {
           ruleType: 'PathBasedRouting'
-          httpListener: {
-            id: resourceId('Microsoft.Network/applicationGateways/httpListeners/', appGatewayName, 'privateHttpListener')
-          }
-          urlPathMap: {
-            id: resourceId('Microsoft.Network/applicationGateways/urlPathMaps/', appGatewayName, 'privateRoutingRule')
-          }
+          httpListener: gateway.httpListener.private.ref
+          urlPathMap: gateway.routingRule.private.urlPathMapRef
         }
       }
     ]
@@ -221,12 +293,10 @@ resource gateway 'Microsoft.Network/applicationGateways@2020-06-01' = {
     ]
     probes: [
       {
-        name: 'gatewayHealthCheck'
+        name: gateway.healthCheckProbe.name
         properties: {
           backendHttpSettings: [
-            {
-              id: resourceId('Microsoft.Network/applicationGateways/backendHttpSettingsCollection/', appGatewayName, 'gatewayHttpSettings')
-            }
+            gateway.backendHttpSettings.ref
           ]
           protocol: 'Https'
           path: '/api/health'
@@ -238,12 +308,10 @@ resource gateway 'Microsoft.Network/applicationGateways@2020-06-01' = {
         }
       }
       {
-        name: 'apiHealthCheck'
+        name: api.healthCheckProbe.name
         properties: {
           backendHttpSettings: [
-            {
-              id: resourceId('Microsoft.Network/applicationGateways/backendHttpSettingsCollection/', appGatewayName, 'apiHttpSettings')
-            }
+            api.backendHttpSettings.ref
           ]
           protocol: 'Https'
           path: '/api/health'
@@ -266,18 +334,17 @@ resource gateway 'Microsoft.Network/applicationGateways@2020-06-01' = {
         name: gatewayHost
         properties: {
           // keyVaultSecretId: internalSslCertId
-          data: rootCertData
+          keyVaultSecretId: rootSecretUriWithVersion
+          // data: rootCertData
           backendHttpSettings: [
-            {
-              id: resourceId('Microsoft.Network/applicationGateways/backendHttpSettingsCollection/', appGatewayName, 'gatewayHttpSettings')
-            }
+            gateway.backendHttpSettings.ref
           ]
         }
       }
     ]
     urlPathMaps: [
       {
-        name: 'publicRoutingRule'
+        name: gateway.routingRule.public.name
         properties: {
           pathRules: [
             {
@@ -286,25 +353,17 @@ resource gateway 'Microsoft.Network/applicationGateways@2020-06-01' = {
                 paths: [
                   '/api/*'
                 ]
-                backendAddressPool: {
-                  id: resourceId('Microsoft.Network/applicationGateways/backendAddressPools/', appGatewayName, 'apiBackend')
-                }
-                backendHttpSettings: {
-                  id: resourceId('Microsoft.Network/applicationGateways/backendHttpSettingsCollection/', appGatewayName, 'apiHttpSettings')
-                }
+                backendAddressPool: api.backendAddressPool.ref
+                backendHttpSettings: api.backendHttpSettings.ref
               }
             }
           ]
-          defaultBackendAddressPool: {
-            id: resourceId('Microsoft.Network/applicationGateways/backendAddressPools/', appGatewayName, 'gatewayBackend')
-          }
-          defaultBackendHttpSettings: {
-            id: resourceId('Microsoft.Network/applicationGateways/backendHttpSettingsCollection/', appGatewayName, 'gatewayHttpSettings')
-          }
+          defaultBackendAddressPool: gateway.backendAddressPool.ref
+          defaultBackendHttpSettings: gateway.backendHttpSettings.ref
         }
       }
       {
-        name: 'privateRoutingRule'
+        name: gateway.routingRule.private.name
         properties: {
           pathRules: [
             {
@@ -313,21 +372,13 @@ resource gateway 'Microsoft.Network/applicationGateways@2020-06-01' = {
                 paths: [
                   '/api/*'
                 ]
-                backendAddressPool: {
-                  id: resourceId('Microsoft.Network/applicationGateways/backendAddressPools/', appGatewayName, 'apiBackend')
-                }
-                backendHttpSettings: {
-                  id: resourceId('Microsoft.Network/applicationGateways/backendHttpSettingsCollection/', appGatewayName, 'apiHttpSettings')
-                }
+                backendAddressPool: api.backendAddressPool.ref
+                backendHttpSettings: api.backendHttpSettings.ref
               }
             }
           ]
-          defaultBackendAddressPool: {
-            id: resourceId('Microsoft.Network/applicationGateways/backendAddressPools/', appGatewayName, 'gatewayBackend')
-          }
-          defaultBackendHttpSettings: {
-            id: resourceId('Microsoft.Network/applicationGateways/backendHttpSettingsCollection/', appGatewayName, 'gatewayHttpSettings')
-          }
+          defaultBackendAddressPool: gateway.backendAddressPool.ref
+          defaultBackendHttpSettings: gateway.backendHttpSettings.ref
         }
       }
     ]
@@ -335,7 +386,7 @@ resource gateway 'Microsoft.Network/applicationGateways@2020-06-01' = {
 }
 
 // output ip string = createPublicIpAddress ? publicIPAddress_new.properties.ipAddress : !empty(publicIPAddress) ? publicIPAddress_existing.properties.ipAddress : privateIPAddress
-output ip string = pip.properties.ipAddress
+output ip string = empty(publicIPAddress) ? pip_new.properties.ipAddress : pip_existing.properties.ipAddress
 output backendAddressPools array = [
   {
     id: resourceId('Microsoft.Network/applicationGateways/backendAddressPools/', appGatewayName, 'gatewayBackend')

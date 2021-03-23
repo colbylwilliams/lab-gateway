@@ -46,6 +46,12 @@ Options:
 
   -k  Password used to export the SSL certificate (for installation).
 
+  -v  Vnet to use for the Gateway.
+
+  -w  Public IP Address Resource ID.
+
+  -r  Private IP Address.
+
 
   Optional
 
@@ -80,7 +86,7 @@ instances=1
 sub=$( az account show --query id -o tsv )
 
 # get arg values
-while getopts ":hs:g:l:u:p:c:k:x:t:i:" opt; do
+while getopts ":hs:g:l:u:p:c:k:x:t:i:v:w:r:" opt; do
     case $opt in
         s)  sub=$OPTARG;;
         g)  rg=$OPTARG;;
@@ -91,6 +97,9 @@ while getopts ":hs:g:l:u:p:c:k:x:t:i:" opt; do
         k)  sslCertPassword=$OPTARG;;
         x)  signCert=$OPTARG;;
         t)  signCertPassword=$OPTARG;;
+        v)  vnetId=$OPTARG;;
+        w)  publicIp=$OPTARG;;
+        r)  privateIp=$OPTARG;;
         i)  instances=$OPTARG;;
         h)  echo "$helpText" >&2; exit 0;;
         \?) die "Invalid option -$OPTARG \n$helpText";;
@@ -147,12 +156,14 @@ if [ ! -z "$signCert" ]; then
   echo "\nDeploying arm template to subscription '$sub'"
   deploy=$( az deployment sub create --subscription $sub -l $region -f "$template" -p name="$rg" adminUsername="$adminUsername" adminPassword="$adminPassword" \
                       sslCertificate="$sslCertBase64" sslCertificatePassword="$sslCertPassword" sslCertificateThumbprint="$sslCertThumbprint" \
-                      signCertificate="$signCertBase64" signCertificatePassword="$signCertPassword" signCertificateThumbprint="$signCertThumbprint" )
+                      signCertificate="$signCertBase64" signCertificatePassword="$signCertPassword" signCertificateThumbprint="$signCertThumbprint" \
+                      hostName="$sslCertCommonName" )
 else
 
   echo "\nDeploying arm template to subscription '$sub'"
   deploy=$( az deployment sub create --subscription $sub -l $region -f "$template" -p name="$rg" adminUsername="$adminUsername" adminPassword="$adminPassword" \
-                      sslCertificate="$sslCertBase64" sslCertificatePassword="$sslCertPassword" sslCertificateThumbprint="$sslCertThumbprint" )
+                      sslCertificate="$sslCertBase64" sslCertificatePassword="$sslCertPassword" sslCertificateThumbprint="$sslCertThumbprint" \
+                      hostName="$sslCertCommonName" )
 fi
 
 

@@ -117,6 +117,7 @@ module gw 'app_gateway.bicep' = {
     sslCertificatePassword: sslCertificatePassword
     // internalSslCertId: certs.outputs.sslCert.id
     rootCertData: certs.outputs.sslCert.cer
+    rootSecretUriWithVersion: certs.outputs.sslCert.id
   }
 }
 

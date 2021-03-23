@@ -5,19 +5,17 @@ param subnet string
 param publicIPAddress string = ''
 param privateIPAddress string = ''
 
-var publicIPAddressRg = empty(publicIPAddress) ? '' : first(split(last(split(publicIPAddress, '/resourceGroups/')), '/'))
 var publicIPAddressName = empty(publicIPAddress) ? '${resourcePrefix}-fw-pip' : last(split(publicIPAddress, '/'))
 
 var loadBalancerName = '${resourcePrefix}-lb'
-
-var loadBalancerBackEndName = 'gatewayBackend'
-var loadBalancerFrontEndName = 'gatewayFrontend'
+var backendAddressPoolName = 'gatewayBackend'
+var frontendIPConfigurationName = 'gatewayFrontend'
 
 var frontendIPConfiguration = {
-  id: resourceId('Microsoft.Network/loadBalancers/frontendIPConfigurations/', loadBalancerName, loadBalancerFrontEndName)
+  id: resourceId('Microsoft.Network/loadBalancers/frontendIPConfigurations/', loadBalancerName, frontendIPConfigurationName)
 }
 var backendAddressPool = {
-  id: resourceId('Microsoft.Network/loadBalancers/backendAddressPools', loadBalancerName, loadBalancerBackEndName)
+  id: resourceId('Microsoft.Network/loadBalancers/backendAddressPools', loadBalancerName, backendAddressPoolName)
 }
 
 var probe80 = {
@@ -122,17 +120,11 @@ var loadBalancingRules = [
 
 var createPublicIpAddress = empty(publicIPAddress) && empty(privateIPAddress)
 
-resource rg_publicIPAddress_existing 'Microsoft.Resources/resourceGroups@2020-06-01' existing = if (!empty(publicIPAddress)) {
-  name: publicIPAddressRg
-  scope: subscription()
-}
-
-resource publicIPAddress_existing 'Microsoft.Network/publicIPAddresses@2020-06-01' existing = if (!empty(publicIPAddress)) {
+resource pip_existing 'Microsoft.Network/publicIPAddresses@2020-06-01' existing = if (!empty(publicIPAddress)) {
   name: publicIPAddressName
-  scope: rg_publicIPAddress_existing
 }
 
-resource publicIPAddress_new 'Microsoft.Network/publicIPAddresses@2020-06-01' = if (createPublicIpAddress) {
+resource pip_new 'Microsoft.Network/publicIPAddresses@2020-06-01' = if (createPublicIpAddress) {
   name: publicIPAddressName
   location: resourceGroup().location
   sku: {
@@ -157,12 +149,12 @@ resource loadBalancer 'Microsoft.Network/loadBalancers@2020-06-01' = {
   properties: {
     frontendIPConfigurations: [
       {
-        name: loadBalancerFrontEndName
+        name: frontendIPConfigurationName
         properties: {
           publicIPAddress: createPublicIpAddress ? {
-            id: publicIPAddress_new.id
+            id: pip_new.id
           } : empty(publicIPAddress) ? json('null') : {
-            id: publicIPAddress_existing.id
+            id: pip_existing.id
           }
           subnet: createPublicIpAddress || !empty(publicIPAddress) ? json('null') : {
             id: subnet
@@ -175,7 +167,7 @@ resource loadBalancer 'Microsoft.Network/loadBalancers@2020-06-01' = {
     ]
     backendAddressPools: [
       {
-        name: loadBalancerBackEndName
+        name: backendAddressPoolName
       }
     ]
     loadBalancingRules: loadBalancingRules
@@ -184,5 +176,5 @@ resource loadBalancer 'Microsoft.Network/loadBalancers@2020-06-01' = {
   }
 }
 
-output ip string = createPublicIpAddress ? publicIPAddress_new.properties.ipAddress : !empty(publicIPAddress) ? publicIPAddress_existing.properties.ipAddress : privateIPAddress
+output ip string = createPublicIpAddress ? pip_new.properties.ipAddress : !empty(publicIPAddress) ? pip_existing.properties.ipAddress : privateIPAddress
 output backendAddressPools array = loadBalancer.properties.backendAddressPools

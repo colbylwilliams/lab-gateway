@@ -40,7 +40,6 @@ param signCertificatePassword string = ''
 param signCertificateThumbprint string = ''
 
 param gatewaySubnetName string = 'RDGatewaySubnet'
-param bastionSubnetName string = 'AzureBastionSubnet'
 
 // var resourcePrefix = 'rdg${uniqueString(resourceGroup().id)}'
 
@@ -65,7 +64,15 @@ param spoke2 object = {
   subnetNsgName: 'nsg-spoke-two-resources'
 }
 
-var gatewaySubnets = [
+param firewall object = {
+  name: 'AzureFirewall'
+  publicIPAddressName: 'pip-firewall'
+  subnetName: 'AzureFirewallSubnet'
+  subnetPrefix: '10.0.3.0/26'
+  routeName: 'r-nexthop-to-fw'
+}
+
+var subnets = [
   {
     name: gatewaySubnetName
     properties: {
@@ -75,9 +82,25 @@ var gatewaySubnets = [
     }
   }
   {
-    name: bastionSubnetName
+    name: 'AzureBastionSubnet'
     properties: {
       addressPrefix: '10.0.1.0/27'
+      privateEndpointNetworkPolicies: 'Disabled'
+      privateLinkServiceNetworkPolicies: 'Enabled'
+    }
+  }
+  {
+    name: 'AppGatewaySubnet'
+    properties: {
+      addressPrefix: '10.0.2.0/26'
+      privateEndpointNetworkPolicies: 'Disabled'
+      privateLinkServiceNetworkPolicies: 'Enabled'
+    }
+  }
+  {
+    name: firewall.subnetName
+    properties: {
+      addressPrefix: firewall.subnetPrefix
       privateEndpointNetworkPolicies: 'Disabled'
       privateLinkServiceNetworkPolicies: 'Enabled'
     }
@@ -105,7 +128,19 @@ module hb 'network/hub.bicep' = {
   params: {
     name: hub.name
     addressPrefix: hub.addressPrefix
-    otherSubnets: gatewaySubnets
+    subnets: subnets
+  }
+}
+
+module fw 'network/firewall.bicep' = {
+  name: 'firewall'
+  scope: hbrg
+  params: {
+    vnetName: hb.outputs.vnetName
+    name: firewall.name
+    publicIPAddressName: firewall.publicIPAddressName
+    subnetName: firewall.subnetName
+    routeName: firewall.routeName
   }
 }
 
@@ -118,7 +153,7 @@ module spk1 'network/spoke.bicep' = {
     subnetName: spoke1.subnetName
     subnetPrefix: spoke1.subnetPrefix
     subnetNsgName: spoke1.subnetNsgName
-    routeTableId: hb.outputs.routeTableId
+    routeTableId: fw.outputs.routeTableId
   }
 }
 
@@ -131,7 +166,7 @@ module spk2 'network/spoke.bicep' = {
     subnetName: spoke2.subnetName
     subnetPrefix: spoke2.subnetPrefix
     subnetNsgName: spoke2.subnetNsgName
-    routeTableId: hb.outputs.routeTableId
+    routeTableId: fw.outputs.routeTableId
   }
 }
 

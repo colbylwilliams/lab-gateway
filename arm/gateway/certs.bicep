@@ -8,8 +8,8 @@ param keyVaultName string
 // param certificateThumbprint string = ''
 // param certificate string = ''
 
-var sslCertificateSecretName = 'SSLCertificate'
-var signCertificateSecretName = 'SignCertificate'
+// var sslCertificateSecretName = 'SSLCertificate'
+// var signCertificateSecretName = 'SignCertificate'
 
 var scriptIdentityName = 'createCertificatesIdentity'
 
@@ -67,34 +67,36 @@ resource createCertificatesScript 'Microsoft.Resources/deploymentScripts@2020-10
   ]
 }
 
-resource signSecret 'Microsoft.KeyVault/vaults/secrets@2019-09-01' = {
-  name: '${keyVaultName}/${signCertificateSecretName}'
-  properties: {
-    value: base64('{ "data":"${createCertificatesScript.properties.outputs.signCert.base64}", "dataType":"pfx", "password":"${createCertificatesScript.properties.outputs.signCert.password}" }')
-  }
-}
+// resource signSecret 'Microsoft.KeyVault/vaults/secrets@2019-09-01' = {
+//   name: '${keyVaultName}/${signCertificateSecretName}'
+//   properties: {
+//     value: base64('{ "data":"${createCertificatesScript.properties.outputs.signCert.base64}", "dataType":"pfx", "password":"${createCertificatesScript.properties.outputs.signCert.password}" }')
+//   }
+// }
 
-resource sslSecret 'Microsoft.KeyVault/vaults/secrets@2019-09-01' = {
-  name: '${keyVaultName}/${sslCertificateSecretName}'
-  properties: {
-    value: base64('{ "data":"${createCertificatesScript.properties.outputs.sslCert.base64}", "dataType":"pfx", "password":"${createCertificatesScript.properties.outputs.sslCert.password}" }')
-  }
-}
+// resource sslSecret 'Microsoft.KeyVault/vaults/secrets@2019-09-01' = {
+//   name: '${keyVaultName}/${sslCertificateSecretName}'
+//   properties: {
+//     value: base64('{ "data":"${createCertificatesScript.properties.outputs.sslCert.base64}", "dataType":"pfx", "password":"${createCertificatesScript.properties.outputs.sslCert.password}" }')
+//   }
+// }
 
 // output thumbprint string = createCertificatesScript.properties.outputs.sslCert.thumbprint
 // output secretUriWithVersion string = secret.properties.secretUriWithVersion
 
 output signCert object = {
+  id: createCertificatesScript.properties.outputs.signCert.id
   // id: createCertificatesScript.properties.outputs.signCert.thumbprint
   thumbprint: createCertificatesScript.properties.outputs.signCert.thumbprint
-  secretUriWithVersion: signSecret.properties.secretUriWithVersion
+  // secretUriWithVersion: signSecret.properties.secretUriWithVersion
+  createCertificatesScript: createCertificatesScript.properties.outputs.signCert.secretUriWithVersion
 }
 
 output sslCert object = {
   id: createCertificatesScript.properties.outputs.sslCert.id
-  cer: createCertificatesScript.properties.outputs.sslCert.cer
+  // cer: createCertificatesScript.properties.outputs.sslCert.cer
   thumbprint: createCertificatesScript.properties.outputs.sslCert.thumbprint
-  secretUriWithVersion: sslSecret.properties.secretUriWithVersion
+  // secretUriWithVersion: sslSecret.properties.secretUriWithVersion
   // TODO: check if we can just use the existing secretUriWithVersion
-  // secretUriWithVersion: createCertificatesScript.properties.outputs.sslCert.secretUriWithVersion
+  secretUriWithVersion: createCertificatesScript.properties.outputs.sslCert.secretUriWithVersion
 }
