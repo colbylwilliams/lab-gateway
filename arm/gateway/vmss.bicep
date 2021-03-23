@@ -21,7 +21,25 @@ param signCertThumbprint string
 @secure()
 param signCertSecretUriWithVersion string
 
-param backendAddressPools array
+param loadBalancerBackendAddressPools array = []
+param applicationGatewayBackendAddressPools array = []
+
+param sslCert object = {
+  cer: ''
+  thumbprint: ''
+  secretUriWithVersion: ''
+}
+
+param signCert object = {
+  cer: ''
+  thumbprint: ''
+  secretUriWithVersion: ''
+}
+
+param publicSslCert object = {
+  thumbprint: ''
+  secretUriWithVersion: ''
+}
 
 var vmssName = '${resourcePrefix}-vmss'
 var vmNamePrefix = take(resourcePrefix, 9)
@@ -48,6 +66,18 @@ resource vmss 'Microsoft.Compute/virtualMachineScaleSets@2020-06-01' = {
         windowsConfiguration: {
           provisionVMAgent: true
           enableAutomaticUpdates: true
+          // winRM: {
+          //   listeners: [
+          //     {
+          //       protocol: 'Https'
+          //       certificateUrl: signCertSecretUriWithVersion
+          //     }
+          //     {
+          //       protocol: 'Https'
+          //       certificateUrl: sslCertSecretUriWithVersion
+          //     }
+          //   ]
+          // }
         }
         secrets: [
           {
@@ -100,7 +130,8 @@ resource vmss 'Microsoft.Compute/virtualMachineScaleSets@2020-06-01' = {
                     subnet: {
                       id: subnet
                     }
-                    loadBalancerBackendAddressPools: backendAddressPools
+                    loadBalancerBackendAddressPools: loadBalancerBackendAddressPools
+                    applicationGatewayBackendAddressPools: applicationGatewayBackendAddressPools
                   }
                 }
               ]

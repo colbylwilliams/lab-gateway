@@ -9,6 +9,9 @@ param gatewaySubnetAddressPrefix string
 
 param bastionSubnetAddressPrefix string
 
+param appGatewaySubnetName string = 'AppGatewaySubnet'
+param appGatewaySubnetAddressPrefix string
+
 var vnetName = empty(vnet) ? '${resourcePrefix}-vnet' : last(split(vnet, '/'))
 var vnetRg = empty(vnet) ? '' : first(split(last(split(vnet, '/resourceGroups/')), '/'))
 var vnetId = empty(vnet) ? resourceId('Microsoft.Network/virtualNetworks', vnetName) : vnet
@@ -49,6 +52,14 @@ resource vnet_new 'Microsoft.Network/virtualNetworks@2020-06-01' = if (empty(vne
           privateLinkServiceNetworkPolicies: 'Enabled'
         }
       }
+      {
+        name: appGatewaySubnetName
+        properties: {
+          addressPrefix: appGatewaySubnetAddressPrefix
+          privateEndpointNetworkPolicies: 'Disabled'
+          privateLinkServiceNetworkPolicies: 'Enabled'
+        }
+      }
     ]
     enableDdosProtection: false
     enableVmProtection: false
@@ -59,3 +70,4 @@ output id string = vnetId
 output name string = vnetName
 output gatewaySubnet string = empty(vnet) ? resourceId('Microsoft.Network/virtualNetworks/subnets', vnet_new.name, gatewaySubnetName) : resourceId(vnetRg, 'Microsoft.Network/virtualNetworks/subnets', vnet_existing.name, gatewaySubnetName)
 output bastionSubnet string = empty(vnet) ? resourceId('Microsoft.Network/virtualNetworks/subnets', vnet_new.name, bastionSubnetName) : resourceId(vnetRg, 'Microsoft.Network/virtualNetworks/subnets', vnet_existing.name, bastionSubnetName)
+output appGatewaySubnet string = empty(vnet) ? resourceId('Microsoft.Network/virtualNetworks/subnets', vnet_new.name, appGatewaySubnetName) : resourceId(vnetRg, 'Microsoft.Network/virtualNetworks/subnets', vnet_existing.name, appGatewaySubnetName)

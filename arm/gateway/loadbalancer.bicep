@@ -6,12 +6,12 @@ param publicIPAddress string = ''
 param privateIPAddress string = ''
 
 var publicIPAddressRg = empty(publicIPAddress) ? '' : first(split(last(split(publicIPAddress, '/resourceGroups/')), '/'))
-var publicIPAddressName = empty(publicIPAddress) ? '${resourcePrefix}-pip' : last(split(publicIPAddress, '/'))
+var publicIPAddressName = empty(publicIPAddress) ? '${resourcePrefix}-fw-pip' : last(split(publicIPAddress, '/'))
 
 var loadBalancerName = '${resourcePrefix}-lb'
 
-var loadBalancerBackEndName = 'gatewayBackEnd'
-var loadBalancerFrontEndName = 'gatewayFrontEnd'
+var loadBalancerBackEndName = 'gatewayBackend'
+var loadBalancerFrontEndName = 'gatewayFrontend'
 
 var frontendIPConfiguration = {
   id: resourceId('Microsoft.Network/loadBalancers/frontendIPConfigurations/', loadBalancerName, loadBalancerFrontEndName)

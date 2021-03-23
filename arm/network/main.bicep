@@ -6,7 +6,6 @@ param location string = deployment().location
 // param initGateway bool = false
 
 param gatewaySubnetName string = 'RDGatewaySubnet'
-param bastionSubnetName string = 'AzureBastionSubnet'
 
 param hub object = {
   name: 'vnet-hub'
@@ -47,7 +46,7 @@ var gatewaySubnets = [
     }
   }
   {
-    name: bastionSubnetName
+    name: 'AzureBastionSubnet'
     properties: {
       addressPrefix: '10.0.1.0/27'
       privateEndpointNetworkPolicies: 'Disabled'

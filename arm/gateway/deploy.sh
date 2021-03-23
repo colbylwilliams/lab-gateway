@@ -156,13 +156,13 @@ if [ ! -z "$signCert" ]; then
   deploy=$( az deployment group create --subscription $sub -g $rg -f "$template" -p adminUsername="$adminUsername" adminPassword="$adminPassword" \
                       sslCertificate="$sslCertBase64" sslCertificatePassword="$sslCertPassword" sslCertificateThumbprint="$sslCertThumbprint" \
                       signCertificate="$signCertBase64" signCertificatePassword="$signCertPassword" signCertificateThumbprint="$signCertThumbprint" \
-                      vnet="$vnetId" publicIPAddress="$publicIp" privateIPAddress="$privateIp" )
+                      vnet="$vnetId" publicIPAddress="$publicIp" privateIPAddress="$privateIp" hostName="$sslCertCommonName" )
 else
 
   echo "\nDeploying arm template to resource group '$rg' in subscription '$sub'"
   deploy=$( az deployment group create --subscription $sub -g $rg -f "$template" -p adminUsername="$adminUsername" adminPassword="$adminPassword" \
                       sslCertificate="$sslCertBase64" sslCertificatePassword="$sslCertPassword" sslCertificateThumbprint="$sslCertThumbprint" \
-                      vnet="$vnetId" publicIPAddress="$publicIp" privateIPAddress="$privateIp" )
+                      vnet="$vnetId" publicIPAddress="$publicIp" privateIPAddress="$privateIp" hostName="$sslCertCommonName" )
 fi
 
 

@@ -10,6 +10,8 @@ param adminPassword string
 @description('The TTL of a generated token (default: 00:01:00)')
 param tokenLifetime string = '00:01:00'
 
+param hostName string
+
 @minLength(1)
 @description('Certificate as Base64 encoded string.')
 param sslCertificate string
@@ -47,23 +49,11 @@ module kv 'keyvault.bicep' = {
   }
 }
 
-module sslCert 'sslCert.bicep' = {
-  name: 'sslCert'
+module certs 'certs.bicep' = {
+  name: 'certs'
   params: {
+    hostName: hostName
     keyVaultName: kv.outputs.name
-    certificate: sslCertificate
-    certificatePassword: sslCertificatePassword
-    certificateThumbprint: sslCertificateThumbprint
-  }
-}
-
-module signCert 'signCert.bicep' = {
-  name: 'signCert'
-  params: {
-    keyVaultName: kv.outputs.name
-    certificate: signCertificate
-    certificatePassword: signCertificatePassword
-    certificateThumbprint: signCertificateThumbprint
   }
 }
 
@@ -81,7 +71,7 @@ module functionApp 'function.bicep' = {
     resourcePrefix: resourcePrefix
     tokenLifetime: tokenLifetime
     storageConnectionString: storage.outputs.connectionString
-    signCertSecretUriWithVersion: signCert.outputs.secretUriWithVersion
+    signCertSecretUriWithVersion: certs.outputs.signCert.secretUriWithVersion
   }
 }
 
@@ -103,6 +93,7 @@ module gwVnet 'vnet.bicep' = {
     gatewaySubnetName: gatewaySubnetName
     gatewaySubnetAddressPrefix: '10.0.0.0/24'
     bastionSubnetAddressPrefix: '10.0.1.0/27'
+    appGatewaySubnetAddressPrefix: '10.0.2.0/26'
   }
 }
 
@@ -114,13 +105,18 @@ module bastion 'bastion.bicep' = {
   }
 }
 
-module lb 'loadbalancer.bicep' = {
-  name: 'loadBalancer'
+module gw 'app_gateway.bicep' = {
+  name: 'appGateway'
   params: {
     resourcePrefix: resourcePrefix
-    publicIPAddress: publicIPAddress
-    privateIPAddress: privateIPAddress
-    subnet: gwVnet.outputs.gatewaySubnet
+    apiHost: functionApp.outputs.defaultHostName
+    subnet: gwVnet.outputs.appGatewaySubnet
+    gatewayHost: hostName
+    privateIPAddress: '10.0.2.5' // privateIPAddress
+    sslCertificate: sslCertificate
+    sslCertificatePassword: sslCertificatePassword
+    // internalSslCertId: certs.outputs.sslCert.id
+    rootCertData: certs.outputs.sslCert.cer
   }
 }
 
@@ -136,11 +132,11 @@ module vmss 'vmss.bicep' = {
     subnet: gwVnet.outputs.gatewaySubnet
     keyVault: kv.outputs.id
     functionHostName: functionApp.outputs.defaultHostName
-    sslCertThumbprint: sslCert.outputs.thumbprint
-    sslCertSecretUriWithVersion: sslCert.outputs.secretUriWithVersion
-    signCertThumbprint: signCert.outputs.thumbprint
-    signCertSecretUriWithVersion: signCert.outputs.secretUriWithVersion
-    backendAddressPools: lb.outputs.backendAddressPools
+    sslCertThumbprint: certs.outputs.sslCert.thumbprint
+    sslCertSecretUriWithVersion: certs.outputs.sslCert.secretUriWithVersion
+    signCertThumbprint: certs.outputs.signCert.thumbprint
+    signCertSecretUriWithVersion: certs.outputs.signCert.secretUriWithVersion
+    applicationGatewayBackendAddressPools: gw.outputs.backendAddressPools
   }
 }
 
@@ -162,5 +158,5 @@ output artifactsStorage object = {
 output gateway object = {
   scaleSet: vmss.outputs.name
   function: functionApp.outputs.name
-  ip: lb.outputs.ip
+  ip: gw.outputs.ip
 }

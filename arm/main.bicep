@@ -3,6 +3,8 @@ targetScope = 'subscription'
 param name string = 'network'
 param location string = deployment().location
 
+param hostName string
+
 param utcValue string = utcNow('u')
 
 @description('Admin username on all VMs.')
@@ -193,6 +195,7 @@ module gateway 'gateway/gateway.bicep' = {
   name: 'gateway'
   scope: hbrg
   params: {
+    hostName: hostName
     adminPassword: adminPassword
     adminUsername: adminUsername
     gatewaySubnetName: gatewaySubnetName
@@ -205,7 +208,8 @@ module gateway 'gateway/gateway.bicep' = {
     tokenLifetime: tokenLifetime
     utcValue: utcValue
     vnet: hb.outputs.vnetId
-    privateIPAddress: '10.0.0.4'
+    // privateIPAddress: '10.0.0.4'
+    // publicIPAddress:
   }
 }
 
