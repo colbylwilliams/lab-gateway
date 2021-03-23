@@ -24,22 +24,22 @@ param signCertSecretUriWithVersion string
 param loadBalancerBackendAddressPools array = []
 param applicationGatewayBackendAddressPools array = []
 
-param sslCert object = {
-  cer: ''
-  thumbprint: ''
-  secretUriWithVersion: ''
-}
+// param sslCert object = {
+//   cer: ''
+//   thumbprint: ''
+//   secretUriWithVersion: ''
+// }
 
-param signCert object = {
-  cer: ''
-  thumbprint: ''
-  secretUriWithVersion: ''
-}
+// param signCert object = {
+//   cer: ''
+//   thumbprint: ''
+//   secretUriWithVersion: ''
+// }
 
-param publicSslCert object = {
-  thumbprint: ''
-  secretUriWithVersion: ''
-}
+// param publicSslCert object = {
+//   thumbprint: ''
+//   secretUriWithVersion: ''
+// }
 
 var vmssName = '${resourcePrefix}-vmss'
 var vmNamePrefix = take(resourcePrefix, 9)
