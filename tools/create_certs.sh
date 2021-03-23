@@ -125,7 +125,7 @@ sslCertPolicy='{
         }
     ],
     "secretProperties": {
-        "contentType": "application/x-pkcs12"
+        "contentType": "application/x-pem-file"
     },
     "x509CertificateProperties": {
         "ekus": [ "1.3.6.1.5.5.7.3.1", "1.3.6.1.5.5.7.3.2" ],
