@@ -33,9 +33,9 @@ Options:
 
   -v  KeyVault name.
 
-  -n  Signing Certificate name in KeyVault. Defaults to SignCert
+  -n  Signing Certificate name in KeyVault. Defaults to SignCertificate
 
-  -l  SSL Certificate name in KeyVault. Defaults to SSLCert
+  -l  SSL Certificate name in KeyVault. Defaults to SSLCertificate
 
   -u  Hostname of the Gateway for the SSL Certificate.
 
@@ -50,6 +50,9 @@ endHelp
 if (($# == 0)); then
     echo "$helpText" >&2; exit 0
 fi
+
+signCertName="SignCertificate"
+sslCertName="SSLCertificate"
 
 # get arg values
 while getopts ":v:n:l:u:h:" opt; do
@@ -76,10 +79,6 @@ if ! [ -x "$(command -v jq)" ]; then
     echo 'Error: jq command is not installed.\njq is required to run this deploy script. Please install jq from https://stedolan.github.io/jq/download/, then try again.' >&2
     exit 1
 fi
-
-
-signCertName="SignCert"
-sslCertName="SSLCert"
 
 signCertPolicy='{
     "issuerParameters": {
@@ -150,14 +149,17 @@ signCert=$( az keyvault certificate show --vault-name $vaultName -n $signCertNam
 echo "Getting id for certificate '$signCertName'"
 signId=$( echo $signCert | jq -r '.id' )
 
+echo "Getting secret name for certificate '$signCertName'"
+signName=$( echo $signCert | jq -r '.name' )
+
 echo "Getting secret id for certificate '$signCertName'"
 signSid=$( echo $signCert | jq -r '.sid' )
 
-echo "Getting secret id for certificate '$signCertName'"
-signCer=$( echo $signCert | jq -r '.cer' )
+# echo "Getting secret id for certificate '$signCertName'"
+# signCer=$( echo $signCert | jq -r '.cer' )
 
-echo "Getting thumbprint for certificate '$signCertName'"
-signThumbprint=$( echo $signCert | jq -r '.x509ThumbprintHex' )
+# echo "Getting thumbprint for certificate '$signCertName'"
+# signThumbprint=$( echo $signCert | jq -r '.x509ThumbprintHex' )
 
 # echo "Downloading certificate '$signCertName'"
 # az keyvault secret download --id $signSid -f "$signSecretFile"
@@ -179,14 +181,17 @@ sslCert=$( az keyvault certificate show --vault-name $vaultName -n $sslCertName 
 echo "Getting id for certificate '$sslCertName'"
 sslId=$( echo $sslCert | jq -r '.id' )
 
+echo "Getting secret name for certificate '$sslCertName'"
+sslName=$( echo $sslCert | jq -r '.name' )
+
 echo "Getting secret id for certificate '$sslCertName'"
 sslSid=$( echo $sslCert | jq -r '.sid' )
 
-echo "Getting cer for certificate '$sslCertName'"
-sslCer=$( echo $sslCert | jq -r '.cer' )
+# echo "Getting cer for certificate '$sslCertName'"
+# sslCer=$( echo $sslCert | jq -r '.cer' )
 
-echo "Getting thumbprint for certificate '$sslCertName'"
-sslThumbprint=$( echo $sslCert | jq -r '.x509ThumbprintHex' )
+# echo "Getting thumbprint for certificate '$sslCertName'"
+# sslThumbprint=$( echo $sslCert | jq -r '.x509ThumbprintHex' )
 
 # echo "Downloading certificate '$sslCertName'"
 # az keyvault secret download --id $sslSid -f "$sslSecretFile"
@@ -198,12 +203,16 @@ sslThumbprint=$( echo $sslCert | jq -r '.x509ThumbprintHex' )
 # openssl pkcs12 -export -in "$sslSecretFile" -out "$sslExportFile" -password pass:$sslPassword -name "$hostName"
 # sslCertBase64=$( openssl base64 -A -in "$sslExportFile" )
 
-echo "{ \"signCert\": { \"id\": \"$signId\", \"thumbprint\": \"$signThumbprint\", \"secretUriWithVersion\": \"$signSid\", \"cer\": \"$signCer\" }, \"sslCert\": { \"id\": \"$sslId\", \"thumbprint\": \"$sslThumbprint\", \"secretUriWithVersion\": \"$sslSid\", \"cer\": \"$sslCer\" } }" > $AZ_SCRIPTS_OUTPUT_PATH
+echo "{ \"signCert\": { \"id\": \"$signId\", \"name\": \"$signName\", \"sid\": \"$signSid\" }, \"sslCert\": { \"id\": \"$sslId\", \"name\": \"$sslName\", \"sid\": \"$sslSid\" } }" > $AZ_SCRIPTS_OUTPUT_PATH
+
+# echo "{ \"signCert\": { \"id\": \"$signId\", \"name\": \"$signName\", \"thumbprint\": \"$signThumbprint\", \"secretUriWithVersion\": \"$signSid\" }, \"sslCert\": { \"id\": \"$sslId\", \"name\": \"$sslName\", \"thumbprint\": \"$sslThumbprint\", \"secretUriWithVersion\": \"$sslSid\" } }" > $AZ_SCRIPTS_OUTPUT_PATH
+
+# echo "{ \"signCert\": { \"id\": \"$signId\", \"thumbprint\": \"$signThumbprint\", \"secretUriWithVersion\": \"$signSid\", \"cer\": \"$signCer\" }, \"sslCert\": { \"id\": \"$sslId\", \"thumbprint\": \"$sslThumbprint\", \"secretUriWithVersion\": \"$sslSid\", \"cer\": \"$sslCer\" } }" > $AZ_SCRIPTS_OUTPUT_PATH
 # echo "{ \"signCert\": { \"id\": \"$signId\", \"thumbprint\": \"$signThumbprint\", \"password\": \"$signPassword\", \"base64\": \"$signCertBase64\", \"secretUriWithVersion\": \"$signSid\", \"cer\": \"$signCer\" }, \"sslCert\": { \"id\": \"$sslId\", \"thumbprint\": \"$sslThumbprint\", \"password\": \"$sslPassword\", \"base64\": \"$sslCertBase64\", \"secretUriWithVersion\": \"$sslSid\", \"cer\": \"$sslCer\" } }" > $AZ_SCRIPTS_OUTPUT_PATH
 # echo "{ \"thumbprint\": \"$thumbprint\", \"password\": \"$password\", \"base64\": \"$signCertBase64\" }" > $AZ_SCRIPTS_OUTPUT_PATH
 
-# echo "Cleaning up temporary files"
-# rm -rf "$tdir"
+echo "Cleaning up temporary files"
+rm -rf "$tdir"
 
 echo "Deleting script runner managed identity"
 az identity delete --ids "$AZ_SCRIPTS_USER_ASSIGNED_IDENTITY"
