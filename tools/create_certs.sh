@@ -203,7 +203,7 @@ sslSid=$( echo $sslCert | jq -r '.sid' )
 # openssl pkcs12 -export -in "$sslSecretFile" -out "$sslExportFile" -password pass:$sslPassword -name "$hostName"
 # sslCertBase64=$( openssl base64 -A -in "$sslExportFile" )
 
-echo "{ \"signCert\": { \"id\": \"$signId\", \"name\": \"$signName\", \"sid\": \"$signSid\" }, \"sslCert\": { \"id\": \"$sslId\", \"name\": \"$sslName\", \"sid\": \"$sslSid\" } }" > $AZ_SCRIPTS_OUTPUT_PATH
+echo "{ \"signCertificate\": { \"id\": \"$signId\", \"name\": \"$signName\", \"sid\": \"$signSid\" }, \"sslCertificate\": { \"id\": \"$sslId\", \"name\": \"$sslName\", \"sid\": \"$sslSid\" } }" > $AZ_SCRIPTS_OUTPUT_PATH
 
 # echo "{ \"signCert\": { \"id\": \"$signId\", \"name\": \"$signName\", \"thumbprint\": \"$signThumbprint\", \"secretUriWithVersion\": \"$signSid\" }, \"sslCert\": { \"id\": \"$sslId\", \"name\": \"$sslName\", \"thumbprint\": \"$sslThumbprint\", \"secretUriWithVersion\": \"$sslSid\" } }" > $AZ_SCRIPTS_OUTPUT_PATH
 
