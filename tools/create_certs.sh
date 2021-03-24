@@ -11,11 +11,11 @@ if [ ! -d "$tdir" ]; then
     mkdir "$tdir"
 fi
 
-signSecretFile="$tdir/sign_cert_in.pem"
-signExportFile="$tdir/sign_cert_out.p12"
+# signSecretFile="$tdir/sign_cert_in.pfx"
+# signExportFile="$tdir/sign_cert_out.pfx"
 
-sslSecretFile="$tdir/ssl_cert_in.pem"
-sslExportFile="$tdir/ssl_cert_out.p12"
+# sslSecretFile="$tdir/ssl_cert_in.pfx"
+# sslExportFile="$tdir/ssl_cert_out.pfx"
 
 # create output file for local development
 if [ -z "$AZ_SCRIPTS_OUTPUT_PATH" ]; then
@@ -98,7 +98,7 @@ signCertPolicy='{
         }
     ],
     "secretProperties": {
-        "contentType": "application/x-pem-file"
+        "contentType": "application/x-pkcs12"
     },
     "x509CertificateProperties": {
         "ekus": [ "1.3.6.1.5.5.7.3.2" ],
@@ -125,7 +125,7 @@ sslCertPolicy='{
         }
     ],
     "secretProperties": {
-        "contentType": "application/x-pem-file"
+        "contentType": "application/x-pkcs12"
     },
     "x509CertificateProperties": {
         "ekus": [ "1.3.6.1.5.5.7.3.1", "1.3.6.1.5.5.7.3.2" ],
@@ -159,15 +159,15 @@ signCer=$( echo $signCert | jq -r '.cer' )
 echo "Getting thumbprint for certificate '$signCertName'"
 signThumbprint=$( echo $signCert | jq -r '.x509ThumbprintHex' )
 
-echo "Downloading certificate '$signCertName'"
-az keyvault secret download --id $signSid -f "$signSecretFile"
+# echo "Downloading certificate '$signCertName'"
+# az keyvault secret download --id $signSid -f "$signSecretFile"
 
-echo "Generating random password for certificate '$signCertName' export"
-signPassword=$( openssl rand -base64 32 | tr -d /=+ | cut -c -16 )
+# echo "Generating random password for certificate '$signCertName' export"
+# signPassword=$( openssl rand -base64 32 | tr -d /=+ | cut -c -16 )
 
-echo "Exporting certificate '$signCertName' file '$signExportFile'"
-openssl pkcs12 -export -in "$signSecretFile" -out "$signExportFile" -password pass:$signPassword -name "Azure DTL Gateway"
-signCertBase64=$( openssl base64 -A -in "$signExportFile" )
+# echo "Exporting certificate '$signCertName' file '$signExportFile'"
+# openssl pkcs12 -export -in "$signSecretFile" -out "$signExportFile" -password pass:$signPassword -name "Azure DTL Gateway"
+# signCertBase64=$( openssl base64 -A -in "$signExportFile" )
 
 
 echo "Creating new certificate '$sslCertName'"
@@ -188,23 +188,24 @@ sslCer=$( echo $sslCert | jq -r '.cer' )
 echo "Getting thumbprint for certificate '$sslCertName'"
 sslThumbprint=$( echo $sslCert | jq -r '.x509ThumbprintHex' )
 
-echo "Downloading certificate '$sslCertName'"
-az keyvault secret download --id $sslSid -f "$sslSecretFile"
+# echo "Downloading certificate '$sslCertName'"
+# az keyvault secret download --id $sslSid -f "$sslSecretFile"
 
-echo "Generating random password for certificate '$sslCertName' export"
-sslPassword=$( openssl rand -base64 32 | tr -d /=+ | cut -c -16 )
+# echo "Generating random password for certificate '$sslCertName' export"
+# sslPassword=$( openssl rand -base64 32 | tr -d /=+ | cut -c -16 )
 
-echo "Exporting certificate '$sslCertName' file '$sslExportFile'"
-openssl pkcs12 -export -in "$sslSecretFile" -out "$sslExportFile" -password pass:$sslPassword -name "$hostName"
-sslCertBase64=$( openssl base64 -A -in "$sslExportFile" )
+# echo "Exporting certificate '$sslCertName' file '$sslExportFile'"
+# openssl pkcs12 -export -in "$sslSecretFile" -out "$sslExportFile" -password pass:$sslPassword -name "$hostName"
+# sslCertBase64=$( openssl base64 -A -in "$sslExportFile" )
 
-echo "{ \"signCert\": { \"id\": \"$signId\", \"thumbprint\": \"$signThumbprint\", \"password\": \"$signPassword\", \"base64\": \"$signCertBase64\", \"secretUriWithVersion\": \"$signSid\", \"cer\": \"$signCer\" }, \"sslCert\": { \"id\": \"$sslId\", \"thumbprint\": \"$sslThumbprint\", \"password\": \"$sslPassword\", \"base64\": \"$sslCertBase64\", \"secretUriWithVersion\": \"$sslSid\", \"cer\": \"$sslCer\" } }" > $AZ_SCRIPTS_OUTPUT_PATH
+echo "{ \"signCert\": { \"id\": \"$signId\", \"thumbprint\": \"$signThumbprint\", \"secretUriWithVersion\": \"$signSid\", \"cer\": \"$signCer\" }, \"sslCert\": { \"id\": \"$sslId\", \"thumbprint\": \"$sslThumbprint\", \"secretUriWithVersion\": \"$sslSid\", \"cer\": \"$sslCer\" } }" > $AZ_SCRIPTS_OUTPUT_PATH
+# echo "{ \"signCert\": { \"id\": \"$signId\", \"thumbprint\": \"$signThumbprint\", \"password\": \"$signPassword\", \"base64\": \"$signCertBase64\", \"secretUriWithVersion\": \"$signSid\", \"cer\": \"$signCer\" }, \"sslCert\": { \"id\": \"$sslId\", \"thumbprint\": \"$sslThumbprint\", \"password\": \"$sslPassword\", \"base64\": \"$sslCertBase64\", \"secretUriWithVersion\": \"$sslSid\", \"cer\": \"$sslCer\" } }" > $AZ_SCRIPTS_OUTPUT_PATH
 # echo "{ \"thumbprint\": \"$thumbprint\", \"password\": \"$password\", \"base64\": \"$signCertBase64\" }" > $AZ_SCRIPTS_OUTPUT_PATH
 
-echo "Cleaning up temporary files"
-rm -rf "$tdir"
+# echo "Cleaning up temporary files"
+# rm -rf "$tdir"
 
-echo "Deleting script runner managed identity"
-az identity delete --ids "$AZ_SCRIPTS_USER_ASSIGNED_IDENTITY"
+# echo "Deleting script runner managed identity"
+# az identity delete --ids "$AZ_SCRIPTS_USER_ASSIGNED_IDENTITY"
 
 echo "Done."
