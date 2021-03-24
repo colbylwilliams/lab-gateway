@@ -3,9 +3,9 @@ param resourcePrefix string
 param subnet string
 param apiHost string
 param gatewayHost string
+param keyVaultName string
 
-param rootCertData string
-param rootSecretUriWithVersion string
+param vmssCertificateSecretUriWithVersion string
 
 @minLength(1)
 @description('Certificate as Base64 encoded string.')
@@ -16,14 +16,9 @@ param sslCertificate string
 param sslCertificatePassword string
 
 param publicIPAddress string = ''
-// param privateIPAddress string = ''
 param privateIPAddress string
 
-// var backendName = 'gatewayBackend'
-// var frontendName = 'gatewayFrontend'
-
 var publicIPAddressName = empty(publicIPAddress) ? '${resourcePrefix}-gw-pip' : last(split(publicIPAddress, '/'))
-// var publicIPAddressName = '${resourcePrefix}-gw-pip'
 
 var appGatewayName = '${resourcePrefix}-gw'
 
@@ -131,14 +126,37 @@ resource pip_new 'Microsoft.Network/publicIPAddresses@2020-06-01' = if (empty(pu
   }
 }
 
+resource identity 'Microsoft.ManagedIdentity/userAssignedIdentities@2018-11-30' = {
+  name: appGatewayName
+  location: resourceGroup().location
+}
+
+module accessPolicy 'agwPolicy.bicep' = {
+  name: 'gatewayIdentityAccessPolicy'
+  params: {
+    keyVaultName: keyVaultName
+    tenantId: identity.properties.tenantId
+    principalId: identity.properties.principalId
+  }
+}
+
 resource gw 'Microsoft.Network/applicationGateways@2020-06-01' = {
   name: appGatewayName
   location: resourceGroup().location
+  dependsOn: [
+    accessPolicy
+  ]
+  identity: {
+    type: 'UserAssigned'
+    userAssignedIdentities: {
+      '${identity.id}': {}
+    }
+  }
   properties: {
     sku: {
       name: 'WAF_v2'
       tier: 'WAF_v2'
-      capacity: 10
+      capacity: 2
     }
     gatewayIPConfigurations: [
       {
@@ -333,9 +351,7 @@ resource gw 'Microsoft.Network/applicationGateways@2020-06-01' = {
       {
         name: gatewayHost
         properties: {
-          // keyVaultSecretId: internalSslCertId
-          keyVaultSecretId: rootSecretUriWithVersion
-          // data: rootCertData
+          keyVaultSecretId: vmssCertificateSecretUriWithVersion
           backendHttpSettings: [
             gateway.backendHttpSettings.ref
           ]

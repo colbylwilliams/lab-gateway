@@ -4,13 +4,17 @@ Licensed under the MIT License.
 #>
 
 param(
-    # The thumbprint of the certificate used for SSL encryption
+    # The name of the KeyVault
     [Parameter(Mandatory = $true)]
-    [string]    $SslCertificateThumbprint,
+    [string]    $KeyVaultName
 
-    # The thumbprint of the certificate used for token signing
+    # The name of the certificate used for SSL encryption
     [Parameter(Mandatory = $true)]
-    [string]    $SignCertificateThumbprint,
+    [string]    $SslCertificateName,
+
+    # The name of the certificate used for token signing
+    [Parameter(Mandatory = $true)]
+    [string]    $SignCertificateName,
 
     # The host name of the CreateToken Azure Function
     [Parameter(Mandatory = $true)]
@@ -76,7 +80,6 @@ function Remove-CertificatePrivateKey {
 function Install-ApplicationRequestRouting {
 
     param (
-        # The thumbprint of the target certificate
         [Parameter(Mandatory = $false)]
         [string] $Hostname
     )
@@ -141,22 +144,34 @@ try {
     $log = [System.IO.Path]::ChangeExtension($msi, '.log')
     Start-Process "msiexec.exe" -ArgumentList @("/qn", "/lv!", "$log", "/i", "$msi", "ACCEPTEULA=1") -Wait -NoNewWindow
 
+    # install NuGet package provider (dependency for PowerShellGet)
+    Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Confirm:$false -Force
+
+    # install PowerShellGet (used to install Azure Powershell)
+    Install-Module -Name PowerShellGet -Confirm:$false -Force
+
+    # install Azure PowerShell
+    Install-Module -Name Az -AllowClobber -Scope AllUsers -Confirm:$false -Force
+
+    $sslCertificate = Get-AzKeyVaultCertificate -VaultName $KeyVaultName -Name $SslCertificateName
+    $signCertificate = Get-AzKeyVaultCertificate -VaultName $KeyVaultName -Name $SignCertificateName
+
     # grant private key access on certificates
-    Set-PrivateKeyPermissions -Thumbprint $SslCertificateThumbprint
-    Set-PrivateKeyPermissions -Thumbprint $SignCertificateThumbprint
+    Set-PrivateKeyPermissions -Thumbprint $sslCertificate.Thumbprint
+    Set-PrivateKeyPermissions -Thumbprint $signCertificate.Thumbprint
 
     # install RDS module
     Import-Module RemoteDesktopServices
 
     # set gateway SSL certificate
-    Set-Item -Path "RDS:\GatewayServer\SSLCertificate\Thumbprint" -Value $SslCertificateThumbprint
+    Set-Item -Path "RDS:\GatewayServer\SSLCertificate\Thumbprint" -Value $sslCertificate.Thumbprint
 
     # Remove the private key from signing certificate and handle self signed certificates properly
-    Remove-CertificatePrivateKey -Thumbprint $SignCertificateThumbprint
+    Remove-CertificatePrivateKey -Thumbprint $signCertificate.Thumbprint
 
     # set gateway signing certificate
     $wmi = Get-WmiObject -computername $env:COMPUTERNAME -NameSpace "root\TSGatewayFedAuth2" -Class "FedAuthSettings"
-    $wmi.TrustedIssuerCertificates = $SignCertificateThumbprint
+    $wmi.TrustedIssuerCertificates = $signCertificate.Thumbprint
     $wmi.IdleTimeoutMinutes = 120
     $wmi.SessionTimeoutMinutes = 720
     $wmi.Put()

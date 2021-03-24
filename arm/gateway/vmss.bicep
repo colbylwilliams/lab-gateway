@@ -11,42 +11,46 @@ param storageArtifactsEndpoint string
 
 param subnet string
 param keyVault string
+param keyVaultName string
 param functionHostName string
 
-param sslCertThumbprint string
-@secure()
-param sslCertSecretUriWithVersion string
-
-param signCertThumbprint string
-@secure()
-param signCertSecretUriWithVersion string
+param sslCertificateName string
+param sslCertificateSecretUriWithVersion string
+param signCertificateName string
+param signCertificateSecretUriWithVersion string
 
 param loadBalancerBackendAddressPools array = []
 param applicationGatewayBackendAddressPools array = []
 
-// param sslCert object = {
-//   cer: ''
-//   thumbprint: ''
-//   secretUriWithVersion: ''
-// }
-
-// param signCert object = {
-//   cer: ''
-//   thumbprint: ''
-//   secretUriWithVersion: ''
-// }
-
-// param publicSslCert object = {
-//   thumbprint: ''
-//   secretUriWithVersion: ''
-// }
+var sslCertificateSecretUri = take(sslCertificateSecretUriWithVersion, lastIndexOf(sslCertificateSecretUriWithVersion, '/'))
+var signCertificateSecretUri = take(signCertificateSecretUriWithVersion, lastIndexOf(signCertificateSecretUriWithVersion, '/'))
 
 var vmssName = '${resourcePrefix}-vmss'
 var vmNamePrefix = take(resourcePrefix, 9)
 
+resource identity 'Microsoft.ManagedIdentity/userAssignedIdentities@2018-11-30' = {
+  name: vmssName
+  location: resourceGroup().location
+}
+
+module accessPolicy 'vmssPolicy.bicep' = {
+  name: 'vmssIdentityAccessPolicy'
+  params: {
+    keyVaultName: keyVaultName
+    tenantId: identity.properties.tenantId
+    principalId: identity.properties.principalId
+  }
+}
+
 resource vmss 'Microsoft.Compute/virtualMachineScaleSets@2020-06-01' = {
   name: vmssName
   location: resourceGroup().location
+  identity: {
+    type: 'UserAssigned'
+    userAssignedIdentities: {
+      '${identity.id}': {}
+    }
+  }
   sku: {
     name: 'Standard_B4ms'
     capacity: 0
@@ -66,36 +70,7 @@ resource vmss 'Microsoft.Compute/virtualMachineScaleSets@2020-06-01' = {
         windowsConfiguration: {
           provisionVMAgent: true
           enableAutomaticUpdates: true
-          // winRM: {
-          //   listeners: [
-          //     {
-          //       protocol: 'Https'
-          //       certificateUrl: signCertSecretUriWithVersion
-          //     }
-          //     {
-          //       protocol: 'Https'
-          //       certificateUrl: sslCertSecretUriWithVersion
-          //     }
-          //   ]
-          // }
         }
-        secrets: [
-          {
-            sourceVault: {
-              id: keyVault
-            }
-            vaultCertificates: [
-              {
-                certificateUrl: sslCertSecretUriWithVersion
-                certificateStore: 'My'
-              }
-              {
-                certificateUrl: signCertSecretUriWithVersion
-                certificateStore: 'My'
-              }
-            ]
-          }
-        ]
       }
       storageProfile: {
         osDisk: {
@@ -153,11 +128,35 @@ resource vmss 'Microsoft.Compute/virtualMachineScaleSets@2020-06-01' = {
                   '${storageArtifactsEndpoint}/gateway.ps1'
                   '${storageArtifactsEndpoint}/RDGatewayFedAuth.msi'
                 ]
-                commandToExecute: 'powershell.exe -ExecutionPolicy Unrestricted -Command "& { $script = gci -Filter gateway.ps1 -Recurse | sort -Descending -Property LastWriteTime | select -First 1 -ExpandProperty FullName; . $script -SslCertificateThumbprint ${sslCertThumbprint} -SignCertificateThumbprint ${signCertThumbprint} -TokenFactoryHostname ${functionHostName} }"'
+                commandToExecute: 'powershell.exe -ExecutionPolicy Unrestricted -Command "& { $script = gci -Filter gateway.ps1 -Recurse | sort -Descending -Property LastWriteTime | select -First 1 -ExpandProperty FullName; . $script -KeyVaultName ${keyVaultName} -SslCertificateName ${sslCertificateName} -SignCertificateName ${signCertificateName} -TokenFactoryHostname ${functionHostName} }"'
               }
               protectedSettings: {
                 storageAccountName: storageAccountName
                 storageAccountKey: storageAccountKey
+              }
+              provisionAfterExtensions: [
+                'KeyVault'
+              ]
+            }
+          }
+          {
+            name: 'KeyVault'
+            properties: {
+              publisher: 'Microsoft.Azure.KeyVault'
+              type: 'KeyVaultForWindows'
+              typeHandlerVersion: '1.0'
+              autoUpgradeMinorVersion: true
+              settings: {
+                secretsManagementSettings: {
+                  requireInitialSync: true
+                  pollingIntervalInS: '3600'
+                  certificateStoreName: 'My'
+                  certificateStoreLocation: 'LocalMachine'
+                  observedCertificates: [
+                    sslCertificateSecretUri
+                    signCertificateSecretUri
+                  ]
+                }
               }
             }
           }

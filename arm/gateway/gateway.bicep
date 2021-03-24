@@ -40,6 +40,8 @@ param privateIPAddress string = ''
 
 param gatewaySubnetName string = 'RDGatewaySubnet'
 
+param skipKeyVaultDeployment bool = false
+
 var resourcePrefix = 'rdg${uniqueString(resourceGroup().id)}'
 
 module kv 'keyvault.bicep' = {
@@ -49,9 +51,14 @@ module kv 'keyvault.bicep' = {
   }
 }
 
+resource kv2 'Microsoft.KeyVault/vaults@2019-09-01' existing = if (skipKeyVaultDeployment) {
+  name: '${resourcePrefix}-kv'
+}
+
 module certs 'certs.bicep' = {
   name: 'certs'
   params: {
+    utcValue: utcValue
     hostName: hostName
     keyVaultName: kv.outputs.name
   }
@@ -71,16 +78,16 @@ module functionApp 'function.bicep' = {
     resourcePrefix: resourcePrefix
     tokenLifetime: tokenLifetime
     storageConnectionString: storage.outputs.connectionString
-    signCertSecretUriWithVersion: certs.outputs.signCert.secretUriWithVersion
+    signCertificateSecretUriWithVersion: certs.outputs.signCertificateSecretUriWithVersion
   }
 }
 
-module functionAppSource 'function_source.bicep' = {
-  name: 'functionAppSource'
-  params: {
-    functionApp: functionApp.outputs.name
-  }
-}
+// module functionAppSource 'function_source.bicep' = {
+//   name: 'functionAppSource'
+//   params: {
+//     functionApp: functionApp.outputs.name
+//   }
+// }
 
 module gwVnet 'vnet.bicep' = {
   name: 'vnet'
@@ -105,21 +112,20 @@ module bastion 'bastion.bicep' = {
   }
 }
 
-module gw 'app_gateway.bicep' = {
-  name: 'appGateway'
-  params: {
-    resourcePrefix: resourcePrefix
-    apiHost: functionApp.outputs.defaultHostName
-    subnet: gwVnet.outputs.appGatewaySubnet
-    gatewayHost: hostName
-    privateIPAddress: '10.0.2.5' // privateIPAddress
-    sslCertificate: sslCertificate
-    sslCertificatePassword: sslCertificatePassword
-    // internalSslCertId: certs.outputs.sslCert.id
-    rootCertData: certs.outputs.sslCert.cer
-    rootSecretUriWithVersion: certs.outputs.sslCert.id
-  }
-}
+// module gw 'agw.bicep' = {
+//   name: 'appGateway'
+//   params: {
+//     resourcePrefix: resourcePrefix
+//     apiHost: functionApp.outputs.defaultHostName
+//     keyVaultName: kv.outputs.name
+//     subnet: gwVnet.outputs.appGatewaySubnet
+//     gatewayHost: hostName
+//     privateIPAddress: '10.0.2.5' // privateIPAddress
+//     sslCertificate: sslCertificate
+//     sslCertificatePassword: sslCertificatePassword
+//     vmssCertificateSecretUriWithVersion: certs.outputs.sslCertificateSecretUriWithVersion
+//   }
+// }
 
 module vmss 'vmss.bicep' = {
   name: 'vmss'
@@ -132,12 +138,13 @@ module vmss 'vmss.bicep' = {
     storageArtifactsEndpoint: storage.outputs.artifactsEndpoint
     subnet: gwVnet.outputs.gatewaySubnet
     keyVault: kv.outputs.id
+    keyVaultName: kv.outputs.name
     functionHostName: functionApp.outputs.defaultHostName
-    sslCertThumbprint: certs.outputs.sslCert.thumbprint
-    sslCertSecretUriWithVersion: certs.outputs.sslCert.secretUriWithVersion
-    signCertThumbprint: certs.outputs.signCert.thumbprint
-    signCertSecretUriWithVersion: certs.outputs.signCert.secretUriWithVersion
-    applicationGatewayBackendAddressPools: gw.outputs.backendAddressPools
+    sslCertificateName: certs.outputs.sslCertificateName
+    sslCertificateSecretUriWithVersion: certs.outputs.sslCertificateSecretUriWithVersion
+    signCertificateName: certs.outputs.signCertificateName
+    signCertificateSecretUriWithVersion: certs.outputs.signCertificateSecretUriWithVersion
+    applicationGatewayBackendAddressPools: [] // gw.outputs.backendAddressPools
   }
 }
 
@@ -159,5 +166,5 @@ output artifactsStorage object = {
 output gateway object = {
   scaleSet: vmss.outputs.name
   function: functionApp.outputs.name
-  ip: gw.outputs.ip
+  ip: 'foo' // gw.outputs.ip
 }
