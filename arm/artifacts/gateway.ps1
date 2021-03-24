@@ -45,7 +45,7 @@ function Remove-CertificatePrivateKey {
         [string] $Thumbprint
     )
 
-    # resolve the certificate ty thumbprint
+    # resolve the certificate by thumbprint
     $certificate = Get-ChildItem -Path CERT:\LocalMachine\my | Where-Object { $_.Thumbprint -eq $Thumbprint } | Select-Object -First 1
 
     if ($certificate) {
