@@ -15,7 +15,6 @@ using Microsoft.Azure.WebJobs;
 using Microsoft.Azure.WebJobs.Extensions.Http;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
 using Gateway.Model;
 
 namespace Gateway.Functions
@@ -71,11 +70,7 @@ namespace Gateway.Functions
                 var signCertificate = Environment.GetEnvironmentVariable("SignCertificate");
                 var signCertificateBuffer = Convert.FromBase64String(signCertificate);
 
-                // unwrap the json data envelope
-                var envelope = JsonConvert.DeserializeAnonymousType(Encoding.UTF8.GetString(signCertificateBuffer), new { data = string.Empty, password = string.Empty });
-
-                // return the certificate
-                return new X509Certificate2(Convert.FromBase64String(envelope.data), envelope.password, X509KeyStorageFlags.MachineKeySet | X509KeyStorageFlags.PersistKeySet | X509KeyStorageFlags.Exportable);
+                return new X509Certificate2(signCertificateBuffer);
             }
             catch (Exception exc)
             {
