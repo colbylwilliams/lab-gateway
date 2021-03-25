@@ -4,16 +4,18 @@
 # Licensed under the MIT License.
 
 cdir=$(cd -P -- "$(dirname -- "$0")" && pwd -P)
+tdir="$cdir/tmp"
+timestamp=$(date +"%Y-%m-%d-%H%M%S%z")
+logfile="$tdir/$timestamp.log"
+
+if [ ! -d "$tdir" ]; then
+    echo "Creating temporary directory $tdir"
+    mkdir "$tdir"
+fi
 
 # create output file for local development
 if [ -z "$AZ_SCRIPTS_OUTPUT_PATH" ]; then
-    tdir="$cdir/tmp"
-
-    if [ ! -d "$tdir" ]; then
-        echo "Creating temporary directory $tdir"
-        mkdir "$tdir"
-    fi
-
+    echo "Setting env variables for local development" >> $logfile
     AZ_SCRIPTS_PATH_OUTPUT_DIRECTORY="$tdir"
     AZ_SCRIPTS_PATH_SCRIPT_OUTPUT_FILE_NAME="scriptoutputs.json"
     AZ_SCRIPTS_OUTPUT_PATH="$AZ_SCRIPTS_PATH_OUTPUT_DIRECTORY/$AZ_SCRIPTS_PATH_SCRIPT_OUTPUT_FILE_NAME"
@@ -63,14 +65,23 @@ while getopts ":hv:x:c:u:" opt; do
 done
 
 
+echo "Script variables:" >> $logfile
+echo "  vaultName: $vaultName" >> $logfile
+echo "  signCertificateName: $signCertificateName" >> $logfile
+echo "  sslCertificateName: $sslCertificateName" >> $logfile
+echo "  sslCertHostName: $sslCertHostName" >> $logfile
+
+
 # check for the azure cli
 if ! [ -x "$(command -v az)" ]; then
+    echo -e 'Error: az command is not installed.\nThe Azure CLI is required to run this deploy script. Please install the Azure CLI, run az login, then try again.' >> $logfile
     echo 'Error: az command is not installed.\nThe Azure CLI is required to run this deploy script. Please install the Azure CLI, run az login, then try again.' >&2
     exit 1
 fi
 
 # check for jq
 if ! [ -x "$(command -v jq)" ]; then
+    echo -e 'Error: jq command is not installed.\njq is required to run this deploy script. Please install jq from https://stedolan.github.io/jq/download/, then try again.'  >> $logfile
     echo 'Error: jq command is not installed.\njq is required to run this deploy script. Please install jq from https://stedolan.github.io/jq/download/, then try again.' >&2
     exit 1
 fi
@@ -134,35 +145,40 @@ sslCertPolicy='{
     }
 }'
 
-echo "Creating new signing certificate"
-az keyvault certificate create --vault-name $vaultName -n $signCertificateName -p "$signCertPolicy"
+echo "Using signing certificate policy" >> $logfile
+echo "$signCertPolicy" >> $logfile
 
-echo "Getting signing certificate details"
+echo "Creating new signing certificate" >> $logfile
+az keyvault certificate create --vault-name $vaultName -n $signCertificateName -p "$signCertPolicy" >> $logfile
+
+echo "Getting signing certificate details" >> $logfile
 signCert=$( az keyvault certificate show --vault-name $vaultName -n $signCertificateName )
 
-echo "Getting id for signing certificate"
+echo "Getting id for signing certificate" >> $logfile
 signCertId=$( echo $signCert | jq -r '.id' )
 
-echo "Getting secret name signing for certificate"
+echo "Getting secret name signing for certificate" >> $logfile
 signCertName=$( echo $signCert | jq -r '.name' )
 
-echo "Getting secret id for signing certificate"
+echo "Getting secret id for signing certificate" >> $logfile
 signCertSid=$( echo $signCert | jq -r '.sid' )
 
+echo "Using ssl certificate policy" >> $logfile
+echo "$sslCertPolicy" >> $logfile
 
-echo "Creating new ssl certificate"
-az keyvault certificate create --vault-name $vaultName -n $sslCertificateName -p "$sslCertPolicy"
+echo "Creating new ssl certificate" >> $logfile
+az keyvault certificate create --vault-name $vaultName -n $sslCertificateName -p "$sslCertPolicy" >> $logfile
 
-echo "Getting ssl certificate details"
+echo "Getting ssl certificate details" >> $logfile
 sslCert=$( az keyvault certificate show --vault-name $vaultName -n $sslCertificateName )
 
-echo "Getting id for ssl certificate"
+echo "Getting id for ssl certificate" >> $logfile
 sslCertId=$( echo $sslCert | jq -r '.id' )
 
-echo "Getting secret name for ssl certificate"
+echo "Getting secret name for ssl certificate" >> $logfile
 sslCertName=$( echo $sslCert | jq -r '.name' )
 
-echo "Getting secret id for ssl certificate"
+echo "Getting secret id for ssl certificate" >> $logfile
 sslCertSid=$( echo $sslCert | jq -r '.sid' )
 
 outputJson='{
@@ -175,10 +191,12 @@ outputJson='{
         "sid": "'"$sslCertSid"'"
     }
 }'
+echo "Setting output json:" >> $logfile
+echo "$outputJson" >> $logfile
 
 echo "$outputJson" > $AZ_SCRIPTS_OUTPUT_PATH
 
-echo "Deleting script runner managed identity"
+echo "Deleting script runner managed identity" >> $logfile
 az identity delete --ids "$AZ_SCRIPTS_USER_ASSIGNED_IDENTITY"
 
-echo "Done."
+echo "Done." >> $logfile
