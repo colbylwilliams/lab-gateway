@@ -4,15 +4,16 @@
 # Licensed under the MIT License.
 
 cdir=$(cd -P -- "$(dirname -- "$0")" && pwd -P)
-tdir="$cdir/tmp"
-
-if [ ! -d "$tdir" ]; then
-    echo "Creating temporary directory $tdir"
-    mkdir "$tdir"
-fi
 
 # create output file for local development
 if [ -z "$AZ_SCRIPTS_OUTPUT_PATH" ]; then
+    tdir="$cdir/tmp"
+
+    if [ ! -d "$tdir" ]; then
+        echo "Creating temporary directory $tdir"
+        mkdir "$tdir"
+    fi
+
     AZ_SCRIPTS_PATH_OUTPUT_DIRECTORY="$tdir"
     AZ_SCRIPTS_PATH_SCRIPT_OUTPUT_FILE_NAME="scriptoutputs.json"
     AZ_SCRIPTS_OUTPUT_PATH="$AZ_SCRIPTS_PATH_OUTPUT_DIRECTORY/$AZ_SCRIPTS_PATH_SCRIPT_OUTPUT_FILE_NAME"
@@ -35,7 +36,7 @@ Options:
 
 Examples:
 
-    $ create_cert.sh -v mykeyvault
+    $ create_cert.sh -v mykeyvault -x SignCert -c SSLCert -u mydomain.com
 
 endHelp
 )
@@ -176,9 +177,6 @@ outputJson='{
 }'
 
 echo "$outputJson" > $AZ_SCRIPTS_OUTPUT_PATH
-
-echo "Cleaning up temporary files"
-# rm -rf "$tdir"
 
 echo "Deleting script runner managed identity"
 az identity delete --ids "$AZ_SCRIPTS_USER_ASSIGNED_IDENTITY"
