@@ -145,14 +145,23 @@ sslCertPolicy='{
     }
 }'
 
-echo "Using signing certificate policy" >> $logfile
-echo "$signCertPolicy" >> $logfile
-
-echo "Creating new signing certificate" >> $logfile
-az keyvault certificate create --vault-name $vaultName -n $signCertificateName -p "$signCertPolicy" >> $logfile
-
-echo "Getting signing certificate details" >> $logfile
+echo "Getting signing certificate" >> $logfile
 signCert=$( az keyvault certificate show --vault-name $vaultName -n $signCertificateName )
+signCertResult=$?
+
+if [ $signCertResult -ne 0 ]; then
+
+    echo "Signing certificate not found" >> $logfile
+
+    echo "Using signing certificate policy" >> $logfile
+    echo "$signCertPolicy" >> $logfile
+
+    echo "Creating new signing certificate" >> $logfile
+    az keyvault certificate create --vault-name $vaultName -n $signCertificateName -p "$signCertPolicy" >> $logfile
+
+    echo "Getting signing certificate details" >> $logfile
+    signCert=$( az keyvault certificate show --vault-name $vaultName -n $signCertificateName )
+fi
 
 echo "Getting id for signing certificate" >> $logfile
 signCertId=$( echo $signCert | jq -r '.id' )
@@ -163,14 +172,24 @@ signCertName=$( echo $signCert | jq -r '.name' )
 echo "Getting secret id for signing certificate" >> $logfile
 signCertSid=$( echo $signCert | jq -r '.sid' )
 
-echo "Using ssl certificate policy" >> $logfile
-echo "$sslCertPolicy" >> $logfile
 
-echo "Creating new ssl certificate" >> $logfile
-az keyvault certificate create --vault-name $vaultName -n $sslCertificateName -p "$sslCertPolicy" >> $logfile
-
-echo "Getting ssl certificate details" >> $logfile
+echo "Getting ssl certificate" >> $logfile
 sslCert=$( az keyvault certificate show --vault-name $vaultName -n $sslCertificateName )
+sslCertResult=$?
+
+if [ $sslCertResult -ne 0 ]; then
+
+    echo "SSL certificate not found" >> $logfile
+
+    echo "Using ssl certificate policy" >> $logfile
+    echo "$sslCertPolicy" >> $logfile
+
+    echo "Creating new ssl certificate" >> $logfile
+    az keyvault certificate create --vault-name $vaultName -n $sslCertificateName -p "$sslCertPolicy" >> $logfile
+
+    echo "Getting ssl certificate details" >> $logfile
+    sslCert=$( az keyvault certificate show --vault-name $vaultName -n $sslCertificateName )
+fi
 
 echo "Getting id for ssl certificate" >> $logfile
 sslCertId=$( echo $sslCert | jq -r '.id' )
@@ -197,6 +216,7 @@ echo "$outputJson" >> $logfile
 echo "$outputJson" > $AZ_SCRIPTS_OUTPUT_PATH
 
 echo "Deleting script runner managed identity" >> $logfile
-az identity delete --ids "$AZ_SCRIPTS_USER_ASSIGNED_IDENTITY"
+az identity delete --ids "$AZ_SCRIPTS_USER_ASSIGNED_IDENTITY" >> $logfile
 
 echo "Done." >> $logfile
+exit 0
