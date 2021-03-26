@@ -15,7 +15,7 @@ var identityName = 'createCertificatesIdentity'
 
 var roleAssignmentIdName = guid('${resourceGroup().id}${identityName}contributor${utcValue}')
 var contributorRoleDefinitionId = '/subscriptions/${subscription().subscriptionId}/providers/Microsoft.Authorization/roleDefinitions/b24988ac-6180-42a0-ab88-20f7382dd24c'
-var scriptUri = 'https://raw.githubusercontent.com/colbylwilliams/lab-gateway/main/tools/create_certs.sh'
+var scriptUri = 'https://raw.githubusercontent.com/colbylwilliams/lab-gateway/main/tools/create_cert.sh'
 
 // var createSignCertificate = (empty(certificate) || empty(certificatePassword) || empty(certificateThumbprint))
 

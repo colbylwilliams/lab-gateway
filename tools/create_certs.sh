@@ -45,7 +45,6 @@ if (($# == 0)); then
 fi
 
 signCertificateName="SignCertificate"
-# sslCertificateName="SSLCertificate"
 
 # get arg values
 while getopts ":hv:x:" opt; do
@@ -137,6 +136,7 @@ outputJson='{
         "sid": "'"$signCertSid"'"
     }
 }'
+
 echo "Setting output json:" >> $logfile
 echo "$outputJson" >> $logfile
 
