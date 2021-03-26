@@ -3,12 +3,6 @@ param utcValue string
 param hostName string
 param keyVaultName string
 
-// @secure()
-// param certificatePassword string = ''
-// param certificateThumbprint string = ''
-// param certificate string = ''
-
-// param sslCertificateName string = 'SSLCertificate'
 param signCertificateName string = 'SignCertificate'
 
 var identityName = 'createCertificatesIdentity'
@@ -69,9 +63,3 @@ resource script 'Microsoft.Resources/deploymentScripts@2020-10-01' = {
 
 output signCertificateName string = script.properties.outputs.signCertificate.name
 output signCertificateSecretUri string = any(take(script.properties.outputs.signCertificate.sid, lastIndexOf(script.properties.outputs.signCertificate.sid, '/')))
-
-// output sslCertificateName string = sslCertificateName
-// output sslCertificateSecretUri string = 'https://${keyVaultName}.vault.azure.net/secrets/${sslCertificateName}'
-
-// output sslCertificateName string = script.properties.outputs.sslCertificate.name
-// output sslCertificateSecretUri string = any(take(script.properties.outputs.sslCertificate.sid, lastIndexOf(script.properties.outputs.sslCertificate.sid, '/')))

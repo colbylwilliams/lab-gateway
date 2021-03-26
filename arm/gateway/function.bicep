@@ -8,6 +8,8 @@ param storageConnectionString string
 @secure()
 param signCertificateSecretUri string
 
+param logAnalyticsWrokspaceId string = ''
+
 var hostingPlanName = '${resourcePrefix}-hp'
 var functionAppName = '${resourcePrefix}-fa'
 var appInsightsName = '${resourcePrefix}-ai'
@@ -105,6 +107,24 @@ resource functionAppKeyVaultPolicy 'Microsoft.KeyVault/vaults/accessPolicies@201
           ]
         }
       }
+    ]
+  }
+}
+
+resource diagnostics 'microsoft.insights/diagnosticSettings@2017-05-01-preview' = if (!empty(logAnalyticsWrokspaceId)) {
+  name: 'diagnostics'
+  scope: functionApp
+  properties: {
+    workspaceId: logAnalyticsWrokspaceId
+    logs: [
+      {
+        category: 'FunctionAppLogs'
+        enabled: true
+      }
+      // {
+      //   category: 'AllMetrics'
+      //   enabled: true
+      // }
     ]
   }
 }

@@ -1,5 +1,7 @@
 param resourcePrefix string = 'rdg${uniqueString(resourceGroup().id)}'
 
+param logAnalyticsWrokspaceId string = ''
+
 var keyVaultName = '${resourcePrefix}-kv'
 
 resource vault 'Microsoft.KeyVault/vaults@2019-09-01' = {
@@ -15,6 +17,24 @@ resource vault 'Microsoft.KeyVault/vaults@2019-09-01' = {
       name: 'standard'
       family: 'A'
     }
+  }
+}
+
+resource diagnostics 'microsoft.insights/diagnosticSettings@2017-05-01-preview' = if (!empty(logAnalyticsWrokspaceId)) {
+  name: 'diagnostics'
+  scope: vault
+  properties: {
+    workspaceId: logAnalyticsWrokspaceId
+    logs: [
+      {
+        category: 'AuditEvent'
+        enabled: true
+      }
+      // {
+      //   category: 'AllMetrics'
+      //   enabled: true
+      // }
+    ]
   }
 }
 

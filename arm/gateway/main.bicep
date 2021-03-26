@@ -50,10 +50,18 @@ var keyVaultName = '${resourcePrefix}-kv'
 var sslCertificateSecretUri = 'https://${keyVaultName}.vault.azure.net/secrets/${sslCertificateName}'
 var signCertificateSecretUri = 'https://${keyVaultName}.vault.azure.net/secrets/${signCertificateName}'
 
+module logWorkspace 'logAnalytics.bicep' = {
+  name: 'logWorkspace'
+  params: {
+    resourcePrefix: resourcePrefix
+  }
+}
+
 module kv 'keyvault.bicep' = {
   name: 'keyvault'
   params: {
     resourcePrefix: resourcePrefix
+    logAnalyticsWrokspaceId: logWorkspace.outputs.id
   }
 }
 
@@ -81,6 +89,7 @@ module functionApp 'function.bicep' = {
     tokenLifetime: tokenLifetime
     storageConnectionString: storage.outputs.connectionString
     signCertificateSecretUri: certs.outputs.signCertificateSecretUri
+    logAnalyticsWrokspaceId: logWorkspace.outputs.id
   }
 }
 
@@ -126,6 +135,7 @@ module gw 'gateway.bicep' = {
     // sslCertificate: sslCertificate
     // sslCertificatePassword: sslCertificatePassword
     sslCertificateSecretUri: sslCertificateSecretUri //certs.outputs.sslCertificateSecretUri
+    logAnalyticsWrokspaceId: logWorkspace.outputs.id
   }
 }
 
