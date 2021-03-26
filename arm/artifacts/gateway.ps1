@@ -6,7 +6,7 @@ Licensed under the MIT License.
 param(
     # The name of the KeyVault
     [Parameter(Mandatory = $true)]
-    [string]    $KeyVaultName
+    [string]    $KeyVaultName,
 
     # The name of the certificate used for SSL encryption
     [Parameter(Mandatory = $true)]
@@ -30,7 +30,7 @@ function Set-PrivateKeyPermissions {
     )
 
     # resolve certificate private key
-    $certKeyName = (((Get-ChildItem -Path CERT:\LocalMachine\my | Where-Object { $_.Thumbprint -eq $Thumbprint } | Select-Object -First 1).PrivateKey).CspKeyContainerInfo).UniqueKeyContainerName
+    $certKeyName = (((Get-ChildItem -Path CERT:\LocalMachine\My | Where-Object { $_.Thumbprint -eq $Thumbprint } | Select-Object -First 1).PrivateKey).CspKeyContainerInfo).UniqueKeyContainerName
     $certKeyPath = $env:ProgramData + "\Microsoft\Crypto\RSA\MachineKeys\" + $certKeyName
     $certKeyAcl = Get-Acl $certKeyPath
 
@@ -50,7 +50,7 @@ function Remove-CertificatePrivateKey {
     )
 
     # resolve the certificate by thumbprint
-    $certificate = Get-ChildItem -Path CERT:\LocalMachine\my | Where-Object { $_.Thumbprint -eq $Thumbprint } | Select-Object -First 1
+    $certificate = Get-ChildItem -Path CERT:\LocalMachine\My | Where-Object { $_.Thumbprint -eq $Thumbprint } | Select-Object -First 1
 
     if ($certificate) {
 
@@ -153,6 +153,9 @@ try {
     # install Azure PowerShell
     Install-Module -Name Az -AllowClobber -Scope AllUsers -Confirm:$false -Force
 
+    # login to Az powershell as vm identity
+    Connect-AzAccount -Identity
+
     $sslCertificate = Get-AzKeyVaultCertificate -VaultName $KeyVaultName -Name $SslCertificateName
     $signCertificate = Get-AzKeyVaultCertificate -VaultName $KeyVaultName -Name $SignCertificateName
 
@@ -168,6 +171,9 @@ try {
 
     # Remove the private key from signing certificate and handle self signed certificates properly
     Remove-CertificatePrivateKey -Thumbprint $signCertificate.Thumbprint
+
+    $tsk = Join-Path $PSScriptRoot "IIS-AutoCertRebind.xml"
+    Register-ScheduledTask -Xml (Get-Content "$tsk" | Out-String) -TaskName "IIS-AutoCertRebind" -TaskPath "\Microsoft\Windows\CertificateServicesClient\"
 
     # set gateway signing certificate
     $wmi = Get-WmiObject -computername $env:COMPUTERNAME -NameSpace "root\TSGatewayFedAuth2" -Class "FedAuthSettings"

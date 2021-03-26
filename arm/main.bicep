@@ -17,27 +17,30 @@ param adminPassword string
 @description('The TTL of a generated token (default: 00:01:00)')
 param tokenLifetime string = '00:01:00'
 
-@minLength(1)
-@description('Certificate as Base64 encoded string.')
-param sslCertificate string
+// @minLength(1)
+// @description('Certificate as Base64 encoded string.')
+// param sslCertificate string
 
-@secure()
-@description('Certificate password for installation.')
-param sslCertificatePassword string
+param sslCertificateName string = 'SSLCertificate'
+param signCertificateName string = '' // = 'SignCertificate'
 
-@minLength(1)
-@description('Certificate thumbprint for identification in the local certificate store.')
-param sslCertificateThumbprint string
+// @secure()
+// @description('Certificate password for installation.')
+// param sslCertificatePassword string
 
-@description('Certificate as Base64 encoded string.')
-param signCertificate string = ''
+// @minLength(1)
+// @description('Certificate thumbprint for identification in the local certificate store.')
+// param sslCertificateThumbprint string
 
-@secure()
-@description('Certificate password for installation.')
-param signCertificatePassword string = ''
+// @description('Certificate as Base64 encoded string.')
+// param signCertificate string = ''
 
-@description('Certificate thumbprint for identification in the local certificate store.')
-param signCertificateThumbprint string = ''
+// @secure()
+// @description('Certificate password for installation.')
+// param signCertificatePassword string = ''
+
+// @description('Certificate thumbprint for identification in the local certificate store.')
+// param signCertificateThumbprint string = ''
 
 param gatewaySubnetName string = 'RDGatewaySubnet'
 
@@ -226,7 +229,7 @@ module lab2 'lab/lab.bicep' = {
   }
 }
 
-module gateway 'gateway/gateway.bicep' = {
+module gateway 'gateway/main.bicep' = {
   name: 'gateway'
   scope: hbrg
   params: {
@@ -234,12 +237,12 @@ module gateway 'gateway/gateway.bicep' = {
     adminPassword: adminPassword
     adminUsername: adminUsername
     gatewaySubnetName: gatewaySubnetName
-    signCertificate: signCertificate
-    signCertificatePassword: signCertificatePassword
-    signCertificateThumbprint: signCertificateThumbprint
-    sslCertificate: sslCertificate
-    sslCertificatePassword: sslCertificatePassword
-    sslCertificateThumbprint: sslCertificateThumbprint
+    signCertificateName: signCertificateName
+    // signCertificatePassword: signCertificatePassword
+    // signCertificateThumbprint: signCertificateThumbprint
+    sslCertificateName: sslCertificateName
+    // sslCertificatePassword: sslCertificatePassword
+    // sslCertificateThumbprint: sslCertificateThumbprint
     tokenLifetime: tokenLifetime
     utcValue: utcValue
     vnet: hb.outputs.vnetId

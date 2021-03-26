@@ -14,19 +14,17 @@ param keyVault string
 param keyVaultName string
 param functionHostName string
 
-param sslCertificateName string
-param sslCertificateSecretUriWithVersion string
-param signCertificateName string
-param signCertificateSecretUriWithVersion string
+param sslCertificateSecretUri string
+param signCertificateSecretUri string
 
 param loadBalancerBackendAddressPools array = []
 param applicationGatewayBackendAddressPools array = []
 
-var sslCertificateSecretUri = take(sslCertificateSecretUriWithVersion, lastIndexOf(sslCertificateSecretUriWithVersion, '/'))
-var signCertificateSecretUri = take(signCertificateSecretUriWithVersion, lastIndexOf(signCertificateSecretUriWithVersion, '/'))
-
 var vmssName = '${resourcePrefix}-vmss'
 var vmNamePrefix = take(resourcePrefix, 9)
+
+var sslCertificateName = last(split(sslCertificateSecretUri, '/'))
+var signCertificateName = last(split(signCertificateSecretUri, '/'))
 
 resource identity 'Microsoft.ManagedIdentity/userAssignedIdentities@2018-11-30' = {
   name: vmssName
@@ -127,6 +125,7 @@ resource vmss 'Microsoft.Compute/virtualMachineScaleSets@2020-06-01' = {
                 fileUris: [
                   '${storageArtifactsEndpoint}/gateway.ps1'
                   '${storageArtifactsEndpoint}/RDGatewayFedAuth.msi'
+                  '${storageArtifactsEndpoint}/IIS-AutoCertRebind.xml'
                 ]
                 commandToExecute: 'powershell.exe -ExecutionPolicy Unrestricted -Command "& { $script = gci -Filter gateway.ps1 -Recurse | sort -Descending -Property LastWriteTime | select -First 1 -ExpandProperty FullName; . $script -KeyVaultName ${keyVaultName} -SslCertificateName ${sslCertificateName} -SignCertificateName ${signCertificateName} -TokenFactoryHostname ${functionHostName} }"'
               }
@@ -148,6 +147,7 @@ resource vmss 'Microsoft.Compute/virtualMachineScaleSets@2020-06-01' = {
               autoUpgradeMinorVersion: true
               settings: {
                 secretsManagementSettings: {
+                  linkOnRenewal: true
                   requireInitialSync: true
                   pollingIntervalInS: '3600'
                   certificateStoreName: 'My'

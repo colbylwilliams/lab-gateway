@@ -6,7 +6,7 @@ param tokenLifetime string = '00:01:00'
 param storageConnectionString string
 
 @secure()
-param signCertificateSecretUriWithVersion string
+param signCertificateSecretUri string
 
 var hostingPlanName = '${resourcePrefix}-hp'
 var functionAppName = '${resourcePrefix}-fa'
@@ -81,7 +81,7 @@ resource functionApp 'Microsoft.Web/sites@2020-06-01' = {
         }
         {
           name: 'SignCertificate'
-          value: '@Microsoft.KeyVault(SecretUri=${signCertificateSecretUriWithVersion})'
+          value: '@Microsoft.KeyVault(SecretUri=${signCertificateSecretUri})'
         }
         {
           name: 'TokenLifetime'

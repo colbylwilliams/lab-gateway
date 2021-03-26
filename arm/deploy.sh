@@ -14,6 +14,7 @@ die() { echo "${RED}Error: $1${NC}" >&2; exit 1; }
 cdir=$(cd -P -- "$(dirname -- "$0")" && pwd -P)
 
 template="$cdir/main.bicep"
+kvtemplate="$cdir/gateway/keyvault.bicep"
 labTemplate="$cdir/lab/lab.bicep"
 artifactsSource="$cdir/artifacts"
 
@@ -138,7 +139,7 @@ fi
 az account show -s $sub 1> /dev/null
 
 # check if the resource group exists. if not, create it
-# az group show --subscription $sub -g $rg 1> /dev/null || echo "Creating resource group '$rg'." && az group create --subscription $sub -g $rg -l $region 1> /dev/null
+az group show --subscription $sub -g $rg 1> /dev/null || echo "Creating resource group '$rg-hub'." && az group create --subscription $sub -g "$rg-hub" -l $region 1> /dev/null
 
 
 echo "\nParsing SSL certificate\n"
@@ -146,25 +147,42 @@ sslCertBase64=$( base64 $sslCert )
 sslCertThumbprint=$( openssl pkcs12 -in $sslCert -nodes -passin pass:$sslCertPassword | openssl x509 -noout -fingerprint | cut -d "=" -f 2 | sed 's/://g' )
 sslCertCommonName=$( openssl pkcs12 -in $sslCert -nodes -passin pass:$sslCertPassword | openssl x509 -noout -subject | rev | cut -d "=" -f 1 | rev | sed 's/ //g' )
 
+echo "\nDeploying kv arm template to resource group '$rg-hub' in subscription '$sub'"
+kvdeploy=$( az deployment group create --subscription $sub -g "$rg-hub" -f "$kvtemplate" )
 
-if [ ! -z "$signCert" ]; then
+[ ! -z "$kvdeploy" ] || die "Failed to deploy kv arm template."
 
-  echo "\nParsing signing certificate\n"
-  signCertBase64=$( base64 $signCert )
-  signCertThumbprint=$( openssl pkcs12 -in $signCert -nodes -passin pass:$signCertPassword | openssl x509 -noout -fingerprint | cut -d "=" -f 2 | sed 's/://g' )
+kvname=$( echo $kvdeploy | jq -r '.properties.outputs.name.value' )
+echo "$kvname"
 
-  echo "\nDeploying arm template to subscription '$sub'"
-  deploy=$( az deployment sub create --subscription $sub -l $region -f "$template" -p name="$rg" adminUsername="$adminUsername" adminPassword="$adminPassword" \
-                      sslCertificate="$sslCertBase64" sslCertificatePassword="$sslCertPassword" sslCertificateThumbprint="$sslCertThumbprint" \
-                      signCertificate="$signCertBase64" signCertificatePassword="$signCertPassword" signCertificateThumbprint="$signCertThumbprint" \
-                      hostName="$sslCertCommonName" )
-else
+azUser=$( az ad signed-in-user show --query userPrincipalName -o tsv )
 
-  echo "\nDeploying arm template to subscription '$sub'"
-  deploy=$( az deployment sub create --subscription $sub -l $region -f "$template" -p name="$rg" adminUsername="$adminUsername" adminPassword="$adminPassword" \
-                      sslCertificate="$sslCertBase64" sslCertificatePassword="$sslCertPassword" sslCertificateThumbprint="$sslCertThumbprint" \
-                      hostName="$sslCertCommonName" )
-fi
+az keyvault set-policy --upn "$azUser" -n "$kvname" --certificate-permissions import
+
+az keyvault certificate import -f "$sslCert" --password "$sslCertPassword" -n "SSLCertificate" --vault-name "$kvname"
+
+
+# if [ ! -z "$signCert" ]; then
+
+#   echo "\nParsing signing certificate\n"
+#   signCertBase64=$( base64 $signCert )
+#   signCertThumbprint=$( openssl pkcs12 -in $signCert -nodes -passin pass:$signCertPassword | openssl x509 -noout -fingerprint | cut -d "=" -f 2 | sed 's/://g' )
+
+#   echo "\nDeploying arm template to subscription '$sub'"
+#   deploy=$( az deployment sub create --subscription $sub -l $region -f "$template" -p name="$rg" adminUsername="$adminUsername" adminPassword="$adminPassword" \
+#                       sslCertificate="$sslCertBase64" sslCertificatePassword="$sslCertPassword" sslCertificateThumbprint="$sslCertThumbprint" \
+#                       signCertificate="$signCertBase64" signCertificatePassword="$signCertPassword" signCertificateThumbprint="$signCertThumbprint" \
+#                       hostName="$sslCertCommonName" )
+# else
+
+#   echo "\nDeploying arm template to subscription '$sub'"
+#   deploy=$( az deployment sub create --subscription $sub -l $region -f "$template" -p name="$rg" adminUsername="$adminUsername" adminPassword="$adminPassword" \
+#                       sslCertificate="$sslCertBase64" sslCertificatePassword="$sslCertPassword" sslCertificateThumbprint="$sslCertThumbprint" \
+#                       hostName="$sslCertCommonName" )
+# fi
+
+echo "\nDeploying arm template to subscription '$sub'"
+deploy=$( az deployment sub create --subscription $sub -l $region -f "$template" -p name="$rg" adminUsername="$adminUsername" adminPassword="$adminPassword" hostName="$sslCertCommonName" )
 
 
 [ ! -z "$deploy" ] || die "Failed to deploy arm template."

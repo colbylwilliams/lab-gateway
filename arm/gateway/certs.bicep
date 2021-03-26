@@ -8,8 +8,8 @@ param keyVaultName string
 // param certificateThumbprint string = ''
 // param certificate string = ''
 
-var sslCertificateName = 'SSLCertificate'
-var signCertificateName = 'SignCertificate'
+// param sslCertificateName string = 'SSLCertificate'
+param signCertificateName string = 'SignCertificate'
 
 var identityName = 'createCertificatesIdentity'
 
@@ -56,7 +56,7 @@ resource script 'Microsoft.Resources/deploymentScripts@2020-10-01' = {
     forceUpdateTag: utcValue
     azCliVersion: '2.18.0'
     timeout: 'PT1H'
-    arguments: '-v ${keyVaultName} -n ${signCertificateName} -l ${sslCertificateName} -u ${hostName}'
+    arguments: '-v ${keyVaultName} -x ${signCertificateName}'
     cleanupPreference: 'Always'
     retentionInterval: 'PT1H'
     primaryScriptUri: scriptUri
@@ -67,10 +67,11 @@ resource script 'Microsoft.Resources/deploymentScripts@2020-10-01' = {
   ]
 }
 
-output signCertificateId string = script.properties.outputs.signCertificate.id
 output signCertificateName string = script.properties.outputs.signCertificate.name
-output signCertificateSecretUriWithVersion string = script.properties.outputs.signCertificate.sid
+output signCertificateSecretUri string = any(take(script.properties.outputs.signCertificate.sid, lastIndexOf(script.properties.outputs.signCertificate.sid, '/')))
 
-output sslCertificateId string = script.properties.outputs.sslCertificate.id
-output sslCertificateName string = script.properties.outputs.sslCertificate.name
-output sslCertificateSecretUriWithVersion string = script.properties.outputs.sslCertificate.sid
+// output sslCertificateName string = sslCertificateName
+// output sslCertificateSecretUri string = 'https://${keyVaultName}.vault.azure.net/secrets/${sslCertificateName}'
+
+// output sslCertificateName string = script.properties.outputs.sslCertificate.name
+// output sslCertificateSecretUri string = any(take(script.properties.outputs.sslCertificate.sid, lastIndexOf(script.properties.outputs.sslCertificate.sid, '/')))
