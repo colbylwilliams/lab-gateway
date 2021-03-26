@@ -69,8 +69,6 @@ namespace Gateway.Functions
                 // get the base64 encoded secret and decode
                 var signCertificate = Environment.GetEnvironmentVariable("SignCertificate");
 
-                log.LogWarning(signCertificate);
-
                 var signCertificateBuffer = Convert.FromBase64String(signCertificate);
 
                 return new X509Certificate2(signCertificateBuffer, string.Empty, X509KeyStorageFlags.MachineKeySet | X509KeyStorageFlags.PersistKeySet | X509KeyStorageFlags.Exportable);
