@@ -73,7 +73,7 @@ namespace Gateway.Functions
 
                 var signCertificateBuffer = Convert.FromBase64String(signCertificate);
 
-                return new X509Certificate2(signCertificateBuffer);
+                return new X509Certificate2(signCertificateBuffer, string.Empty, X509KeyStorageFlags.MachineKeySet | X509KeyStorageFlags.PersistKeySet | X509KeyStorageFlags.Exportable);
             }
             catch (Exception exc)
             {
