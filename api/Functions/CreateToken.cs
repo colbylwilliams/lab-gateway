@@ -46,7 +46,7 @@ namespace Gateway.Functions
 
             try
             {
-                var certificate = GetCertificate(); // get the signing certificate
+                var certificate = GetCertificate(log); // get the signing certificate
                 var response = new { token = GetToken(certificate, host, port) }; // get the signed authentication token
 
                 TrackToken(trackTokenQueue, req.GetCorrelationId().GetValueOrDefault(executionContext.InvocationId), userId, response.token);
@@ -62,12 +62,15 @@ namespace Gateway.Functions
         }
 
 
-        private static X509Certificate2 GetCertificate()
+        private static X509Certificate2 GetCertificate(ILogger log)
         {
             try
             {
                 // get the base64 encoded secret and decode
                 var signCertificate = Environment.GetEnvironmentVariable("SignCertificate");
+
+                log.LogWarning(signCertificate);
+
                 var signCertificateBuffer = Convert.FromBase64String(signCertificate);
 
                 return new X509Certificate2(signCertificateBuffer);
