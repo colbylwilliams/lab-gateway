@@ -1379,6 +1379,30 @@ resource wafPolicy 'Microsoft.Network/ApplicationGatewayWebApplicationFirewallPo
         {
           ruleSetType: 'OWASP'
           ruleSetVersion: '3.1'
+          ruleGroupOverrides: [
+            {
+              ruleGroupName: 'REQUEST-920-PROTOCOL-ENFORCEMENT'
+              rules: [
+                {
+                  ruleId: '920100' // Invalid HTTP Request Line rule
+                  state: 'Disabled' // Disabled to allow RDG_OUT_DATA and RPC_IN_DATA
+                }
+                {
+                  ruleId: '920440' // URL file extension is restricted by policy
+                  state: 'Disabled' // Disabled to allow connection to /rpc/rpcproxy.dll
+                }
+              ]
+            }
+            {
+              ruleGroupName: 'REQUEST-911-METHOD-ENFORCEMENT'
+              rules: [
+                {
+                  ruleId: '911100' // Method is not allowed by policy
+                  state: 'Disabled' // Disabled to allow RDG_OUT_DATA and RPC_IN_DATA
+                }
+              ]
+            }
+          ]
         }
       ]
     }
