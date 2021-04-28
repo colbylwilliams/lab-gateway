@@ -10,6 +10,8 @@ param signCertificateSecretUri string
 
 param logAnalyticsWrokspaceId string = ''
 
+param tags object = {}
+
 var hostingPlanName = '${resourcePrefix}-hp'
 var functionAppName = '${resourcePrefix}-fa'
 var appInsightsName = '${resourcePrefix}-ai'
@@ -23,6 +25,7 @@ resource appInsights 'Microsoft.Insights/components@2020-02-02-preview' = {
   properties: {
     Application_Type: 'web'
   }
+  tags: tags
 }
 
 resource hostingPlan 'Microsoft.Web/serverfarms@2020-06-01' = {
@@ -32,6 +35,7 @@ resource hostingPlan 'Microsoft.Web/serverfarms@2020-06-01' = {
     tier: 'ElasticPremium'
     name: 'EP1'
   }
+  tags: tags
 }
 
 resource functionApp 'Microsoft.Web/sites@2020-06-01' = {
@@ -92,6 +96,7 @@ resource functionApp 'Microsoft.Web/sites@2020-06-01' = {
       ]
     }
   }
+  tags: tags
 }
 
 resource functionAppKeyVaultPolicy 'Microsoft.KeyVault/vaults/accessPolicies@2019-09-01' = {
@@ -121,10 +126,6 @@ resource diagnostics 'microsoft.insights/diagnosticSettings@2017-05-01-preview' 
         category: 'FunctionAppLogs'
         enabled: true
       }
-      // {
-      //   category: 'AllMetrics'
-      //   enabled: true
-      // }
     ]
   }
 }

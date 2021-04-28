@@ -5,6 +5,8 @@ param subnet string
 param publicIPAddress string = ''
 param privateIPAddress string = ''
 
+param tags object = {}
+
 var publicIPAddressName = empty(publicIPAddress) ? '${resourcePrefix}-fw-pip' : last(split(publicIPAddress, '/'))
 
 var loadBalancerName = '${resourcePrefix}-lb'
@@ -138,6 +140,7 @@ resource pip_new 'Microsoft.Network/publicIPAddresses@2020-06-01' = if (createPu
       domainNameLabel: resourcePrefix
     }
   }
+  tags: tags
 }
 
 resource loadBalancer 'Microsoft.Network/loadBalancers@2020-06-01' = {
@@ -174,6 +177,7 @@ resource loadBalancer 'Microsoft.Network/loadBalancers@2020-06-01' = {
     probes: probes
     inboundNatPools: []
   }
+  tags: tags
 }
 
 output ip string = createPublicIpAddress ? pip_new.properties.ipAddress : !empty(publicIPAddress) ? pip_existing.properties.ipAddress : privateIPAddress

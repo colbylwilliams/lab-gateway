@@ -1,5 +1,7 @@
 param accountName string
 
+param tags object = {}
+
 var artifactsContainerName = 'artifacts'
 
 resource storageAccount 'Microsoft.Storage/storageAccounts@2020-08-01-preview' = {
@@ -10,6 +12,10 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2020-08-01-preview' =
     tier: 'Standard'
   }
   kind: 'StorageV2'
+  properties: {
+    supportsHttpsTrafficOnly: true
+  }
+  tags: tags
 }
 
 resource artifactsContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2020-08-01-preview' = {

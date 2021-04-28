@@ -13,6 +13,8 @@ param gatewayToken string = ''
 @description('The hostname for the remote desktop gateway used by this lab.')
 param gatewayHostname string = ''
 
+param tags object = {}
+
 var setVnet = !empty(vnetId) && !empty(subnetId)
 var setGateway = !empty(gatewayToken) && !empty(gatewayHostname)
 
@@ -28,6 +30,7 @@ resource lab 'Microsoft.DevTestLab/labs@2018-09-15' = {
       RdgTokenSecretName: 'gateway'
     } : {}
   }
+  tags: tags
 }
 
 resource vnet 'Microsoft.DevTestLab/labs/virtualnetworks@2018-09-15' = if (setVnet) {
@@ -44,6 +47,7 @@ resource vnet 'Microsoft.DevTestLab/labs/virtualnetworks@2018-09-15' = if (setVn
       }
     ]
   }
+  tags: tags
 }
 
 module secret 'secret.bicep' = if (setGateway) {
@@ -52,6 +56,7 @@ module secret 'secret.bicep' = if (setGateway) {
     name: 'gateway'
     vaultName: last(split(lab.properties.vaultName, '/'))
     value: gatewayToken
+    tags: tags
   }
 }
 

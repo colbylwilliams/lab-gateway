@@ -2,6 +2,8 @@ param resourcePrefix string = 'rdg${uniqueString(resourceGroup().id)}'
 
 param logAnalyticsWrokspaceId string = ''
 
+param tags object = {}
+
 var keyVaultName = '${resourcePrefix}-kv'
 
 resource vault 'Microsoft.KeyVault/vaults@2019-09-01' = {
@@ -18,6 +20,7 @@ resource vault 'Microsoft.KeyVault/vaults@2019-09-01' = {
       family: 'A'
     }
   }
+  tags: tags
 }
 
 resource diagnostics 'microsoft.insights/diagnosticSettings@2017-05-01-preview' = if (!empty(logAnalyticsWrokspaceId)) {
@@ -30,10 +33,6 @@ resource diagnostics 'microsoft.insights/diagnosticSettings@2017-05-01-preview' 
         category: 'AuditEvent'
         enabled: true
       }
-      // {
-      //   category: 'AllMetrics'
-      //   enabled: true
-      // }
     ]
   }
 }

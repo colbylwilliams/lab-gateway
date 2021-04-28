@@ -20,6 +20,8 @@ param signCertificateSecretUri string
 param loadBalancerBackendAddressPools array = []
 param applicationGatewayBackendAddressPools array = []
 
+param tags object = {}
+
 var vmssName = '${resourcePrefix}-vmss'
 var vmNamePrefix = take(resourcePrefix, 9)
 
@@ -29,6 +31,7 @@ var signCertificateName = last(split(signCertificateSecretUri, '/'))
 resource identity 'Microsoft.ManagedIdentity/userAssignedIdentities@2018-11-30' = {
   name: vmssName
   location: resourceGroup().location
+  tags: tags
 }
 
 module accessPolicy 'vmssPolicy.bicep' = {
@@ -164,6 +167,7 @@ resource vmss 'Microsoft.Compute/virtualMachineScaleSets@2020-06-01' = {
       }
     }
   }
+  tags: tags
 }
 
 output name string = vmss.name

@@ -7,16 +7,17 @@ param addressPrefixes array
 param gatewaySubnetName string = 'RDGatewaySubnet'
 param gatewaySubnetAddressPrefix string
 
+param bastionSubnetName string = 'AzureBastionSubnet' // MUST be AzureBastionSubnet, DO NOT change
 param bastionSubnetAddressPrefix string
 
 param appGatewaySubnetName string = 'AppGatewaySubnet'
 param appGatewaySubnetAddressPrefix string
 
+param tags object = {}
+
 var vnetName = empty(vnet) ? '${resourcePrefix}-vnet' : last(split(vnet, '/'))
 var vnetRg = empty(vnet) ? '' : first(split(last(split(vnet, '/resourceGroups/')), '/'))
 var vnetId = empty(vnet) ? resourceId('Microsoft.Network/virtualNetworks', vnetName) : vnet
-
-var bastionSubnetName = 'AzureBastionSubnet'
 
 resource rg_vnet_existing 'Microsoft.Resources/resourceGroups@2020-06-01' existing = if (!empty(vnet)) {
   name: vnetRg
@@ -64,6 +65,7 @@ resource vnet_new 'Microsoft.Network/virtualNetworks@2020-06-01' = if (empty(vne
     enableDdosProtection: false
     enableVmProtection: false
   }
+  tags: tags
 }
 
 output id string = vnetId

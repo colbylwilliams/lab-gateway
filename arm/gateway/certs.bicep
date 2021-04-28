@@ -3,6 +3,8 @@ param utcValue string
 param hostName string
 param keyVaultName string
 
+param tags object = {}
+
 param signCertificateName string = 'SignCertificate'
 
 var identityName = 'createCertificatesIdentity'
@@ -59,6 +61,7 @@ resource script 'Microsoft.Resources/deploymentScripts@2020-10-01' = {
     roleAssignmentId
     accessPolicy
   ]
+  tags: tags
 }
 
 output signCertificateName string = script.properties.outputs.signCertificate.name

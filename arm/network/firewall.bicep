@@ -6,6 +6,8 @@ param publicIPAddressName string = 'pip-firewall'
 param subnetName string = 'AzureFirewallSubnet'
 param routeName string = 'r-nexthop-to-fw'
 
+param tags object = {}
+
 resource fwpip 'Microsoft.Network/publicIPAddresses@2020-06-01' = {
   name: publicIPAddressName
   location: location
@@ -15,6 +17,7 @@ resource fwpip 'Microsoft.Network/publicIPAddresses@2020-06-01' = {
   properties: {
     publicIPAllocationMethod: 'Static'
   }
+  tags: tags
 }
 
 resource fw 'Microsoft.Network/azureFirewalls@2020-06-01' = {
@@ -72,6 +75,7 @@ resource fw 'Microsoft.Network/azureFirewalls@2020-06-01' = {
     ]
     natRuleCollections: []
   }
+  tags: tags
 }
 
 resource fwroutetable 'Microsoft.Network/routeTables@2020-06-01' = {
@@ -90,6 +94,7 @@ resource fwroutetable 'Microsoft.Network/routeTables@2020-06-01' = {
       }
     ]
   }
+  tags: tags
 }
 
 output pipId string = fwpip.id

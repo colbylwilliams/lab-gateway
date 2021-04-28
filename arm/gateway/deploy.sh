@@ -176,7 +176,7 @@ az keyvault certificate import -f "$sslCert" --password "$sslCertPassword" -n "S
 
 echo "\nDeploying arm template to resource group '$rg' in subscription '$sub'"
 deploy=$( az deployment group create --subscription $sub -g $rg -f "$template" -p adminUsername="$adminUsername" adminPassword="$adminPassword" \
-                    vnet="$vnetId" publicIPAddress="$publicIp" privateIPAddress="$privateIp" hostName="$sslCertCommonName" )
+                    vnet="$vnetId" publicIPAddress="$publicIp" hostName="$sslCertCommonName" )
 # fi
 
 

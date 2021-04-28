@@ -5,12 +5,32 @@ param initLabs bool = false
 param location string = deployment().location
 // param initGateway bool = false
 
-param gatewaySubnetName string = 'RDGatewaySubnet'
+// ====================
+// Manual variables
 
-param hub object = {
-  name: 'vnet-hub'
-  addressPrefix: '10.0.0.0/20'
-}
+param tags object = {}
+
+// only used if an existing VNet is NOT provided
+param vnetName string = 'vnet-hub'
+param vnetAddressPrefixs array = [
+  '10.0.0.0/16'
+]
+
+// If an existing VNet is provided, the following subnets must exist
+// update the address prefixes with the prefixes used in the subnets
+
+param gatewaySubnetName string = 'RDGatewaySubnet'
+param gatewaySubnetAddressPrefix string = '10.0.0.0/24'
+
+param bastionSubnetName string = 'AzureBastionSubnet' // MUST be AzureBastionSubnet, DO NOT change
+param bastionSubnetAddressPrefix string = '10.0.1.0/27' // MUST be at least /27 or larger
+
+param appGatewaySubnetName string = 'AppGatewaySubnet'
+param appGatewaySubnetAddressPrefix string = '10.0.2.0/26' // MUST be at least /26 or larger
+
+param privateIPAddress string = '10.0.2.5' // MUST be within appGatewaySubnetAddressPrefix and cannot end in .0 - .4 (reserved)
+
+// ====================
 
 param spoke1 object = {
   name: 'vnet-spoke-one'
@@ -46,17 +66,17 @@ var subnets = [
     }
   }
   {
-    name: 'AzureBastionSubnet'
+    name: bastionSubnetName
     properties: {
-      addressPrefix: '10.0.1.0/27'
+      addressPrefix: bastionSubnetAddressPrefix
       privateEndpointNetworkPolicies: 'Disabled'
       privateLinkServiceNetworkPolicies: 'Enabled'
     }
   }
   {
-    name: 'AppGatewaySubnet'
+    name: appGatewaySubnetName
     properties: {
-      addressPrefix: '10.0.2.0/26'
+      addressPrefix: appGatewaySubnetAddressPrefix
       privateEndpointNetworkPolicies: 'Disabled'
       privateLinkServiceNetworkPolicies: 'Enabled'
     }
@@ -74,25 +94,29 @@ var subnets = [
 resource hbrg 'Microsoft.Resources/resourceGroups@2020-06-01' = {
   name: '${name}-hub'
   location: location
+  tags: tags
 }
 
 resource spk1rg 'Microsoft.Resources/resourceGroups@2020-06-01' = {
   name: '${name}-spoke-one'
   location: location
+  tags: tags
 }
 
 resource spk2rg 'Microsoft.Resources/resourceGroups@2020-06-01' = {
   name: '${name}-spoke-two'
   location: location
+  tags: tags
 }
 
 module hb 'hub.bicep' = {
-  name: hub.name
+  name: vnetName
   scope: hbrg
   params: {
-    name: hub.name
-    addressPrefix: hub.addressPrefix
+    name: vnetName
+    addressPrefixs: vnetAddressPrefixs
     subnets: subnets
+    tags: tags
   }
 }
 
@@ -105,6 +129,7 @@ module fw 'firewall.bicep' = {
     publicIPAddressName: firewall.publicIPAddressName
     subnetName: firewall.subnetName
     routeName: firewall.routeName
+    tags: tags
   }
 }
 
@@ -118,6 +143,7 @@ module spk1 'spoke.bicep' = {
     subnetPrefix: spoke1.subnetPrefix
     subnetNsgName: spoke1.subnetNsgName
     routeTableId: fw.outputs.routeTableId
+    tags: tags
   }
 }
 
@@ -131,6 +157,7 @@ module spk2 'spoke.bicep' = {
     subnetPrefix: spoke2.subnetPrefix
     subnetNsgName: spoke2.subnetNsgName
     routeTableId: fw.outputs.routeTableId
+    tags: tags
   }
 }
 
@@ -177,6 +204,7 @@ module lab1 '../lab/lab.bicep' = if (initLabs) {
     name: 'Spoke1Lab'
     vnetId: spk1.outputs.vnetId
     subnetId: spk1.outputs.subnetId
+    tags: tags
   }
 }
 
@@ -187,5 +215,6 @@ module lab2 '../lab/lab.bicep' = if (initLabs) {
     name: 'Spoke2Lab'
     vnetId: spk2.outputs.vnetId
     subnetId: spk2.outputs.subnetId
+    tags: tags
   }
 }

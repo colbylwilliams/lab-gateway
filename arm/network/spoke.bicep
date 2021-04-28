@@ -8,6 +8,8 @@ param subnetNsgName string
 
 param routeTableId string
 
+param tags object = {}
+
 resource nsg 'Microsoft.Network/networkSecurityGroups@2020-06-01' = {
   name: subnetNsgName
   location: location
@@ -28,6 +30,7 @@ resource nsg 'Microsoft.Network/networkSecurityGroups@2020-06-01' = {
       // }
     ]
   }
+  tags: tags
 }
 
 resource vnet 'Microsoft.Network/virtualNetworks@2020-06-01' = {
@@ -40,6 +43,7 @@ resource vnet 'Microsoft.Network/virtualNetworks@2020-06-01' = {
       ]
     }
   }
+  tags: tags
 }
 
 resource subnet 'Microsoft.Network/virtualNetworks/subnets@2020-06-01' = {

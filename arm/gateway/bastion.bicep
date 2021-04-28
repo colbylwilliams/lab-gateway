@@ -1,6 +1,8 @@
 param subnet string
 param resourcePrefix string
 
+param tags object = {}
+
 var bastionHostName = '${resourcePrefix}-bh'
 var bastionIPAddressName = '${resourcePrefix}-bh-pip'
 
@@ -18,6 +20,7 @@ resource bastionIPAddress 'Microsoft.Network/publicIPAddresses@2020-06-01' = {
       domainNameLabel: '${resourcePrefix}-admin'
     }
   }
+  tags: tags
 }
 
 resource bastionHost 'Microsoft.Network/bastionHosts@2020-06-01' = {
@@ -38,4 +41,5 @@ resource bastionHost 'Microsoft.Network/bastionHosts@2020-06-01' = {
       }
     ]
   }
+  tags: tags
 }

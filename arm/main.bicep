@@ -17,39 +17,34 @@ param adminPassword string
 @description('The TTL of a generated token (default: 00:01:00)')
 param tokenLifetime string = '00:01:00'
 
-// @minLength(1)
-// @description('Certificate as Base64 encoded string.')
-// param sslCertificate string
-
 param sslCertificateName string = 'SSLCertificate'
-param signCertificateName string = '' // = 'SignCertificate'
 
-// @secure()
-// @description('Certificate password for installation.')
-// param sslCertificatePassword string
+// ====================
+// Manual variables
 
-// @minLength(1)
-// @description('Certificate thumbprint for identification in the local certificate store.')
-// param sslCertificateThumbprint string
+param tags object = {}
 
-// @description('Certificate as Base64 encoded string.')
-// param signCertificate string = ''
+// only used if an existing VNet is NOT provided
+param vnetName string = 'vnet-hub'
+param vnetAddressPrefixs array = [
+  '10.0.0.0/16'
+]
 
-// @secure()
-// @description('Certificate password for installation.')
-// param signCertificatePassword string = ''
-
-// @description('Certificate thumbprint for identification in the local certificate store.')
-// param signCertificateThumbprint string = ''
+// If an existing VNet is provided, the following subnets must exist
+// update the address prefixes with the prefixes used in the subnets
 
 param gatewaySubnetName string = 'RDGatewaySubnet'
+param gatewaySubnetAddressPrefix string = '10.0.0.0/24'
 
-// var resourcePrefix = 'rdg${uniqueString(resourceGroup().id)}'
+param bastionSubnetName string = 'AzureBastionSubnet' // MUST be AzureBastionSubnet, DO NOT change
+param bastionSubnetAddressPrefix string = '10.0.1.0/27' // MUST be at least /27 or larger
 
-param hub object = {
-  name: 'vnet-hub'
-  addressPrefix: '10.0.0.0/20'
-}
+param appGatewaySubnetName string = 'AppGatewaySubnet'
+param appGatewaySubnetAddressPrefix string = '10.0.2.0/26' // MUST be at least /26 or larger
+
+param privateIPAddress string = '10.0.2.5' // MUST be within appGatewaySubnetAddressPrefix and cannot end in .0 - .4 (reserved)
+
+// ====================
 
 param spoke1 object = {
   name: 'vnet-spoke-one'
@@ -79,23 +74,23 @@ var subnets = [
   {
     name: gatewaySubnetName
     properties: {
-      addressPrefix: '10.0.0.0/24'
+      addressPrefix: gatewaySubnetAddressPrefix
       privateEndpointNetworkPolicies: 'Disabled'
       privateLinkServiceNetworkPolicies: 'Enabled'
     }
   }
   {
-    name: 'AzureBastionSubnet'
+    name: bastionSubnetName
     properties: {
-      addressPrefix: '10.0.1.0/27'
+      addressPrefix: bastionSubnetAddressPrefix
       privateEndpointNetworkPolicies: 'Disabled'
       privateLinkServiceNetworkPolicies: 'Enabled'
     }
   }
   {
-    name: 'AppGatewaySubnet'
+    name: appGatewaySubnetName
     properties: {
-      addressPrefix: '10.0.2.0/26'
+      addressPrefix: appGatewaySubnetAddressPrefix
       privateEndpointNetworkPolicies: 'Disabled'
       privateLinkServiceNetworkPolicies: 'Enabled'
     }
@@ -113,11 +108,13 @@ var subnets = [
 resource hbrg 'Microsoft.Resources/resourceGroups@2020-06-01' = {
   name: '${name}-hub'
   location: location
+  tags: tags
 }
 
 resource spk1rg 'Microsoft.Resources/resourceGroups@2020-06-01' = {
   name: '${name}-spoke-one'
   location: location
+  tags: tags
 }
 
 resource spk2rg 'Microsoft.Resources/resourceGroups@2020-06-01' = {
@@ -126,12 +123,13 @@ resource spk2rg 'Microsoft.Resources/resourceGroups@2020-06-01' = {
 }
 
 module hb 'network/hub.bicep' = {
-  name: hub.name
+  name: vnetName
   scope: hbrg
   params: {
-    name: hub.name
-    addressPrefix: hub.addressPrefix
+    name: vnetName
+    addressPrefixs: vnetAddressPrefixs
     subnets: subnets
+    tags: tags
   }
 }
 
@@ -144,6 +142,7 @@ module fw 'network/firewall.bicep' = {
     publicIPAddressName: firewall.publicIPAddressName
     subnetName: firewall.subnetName
     routeName: firewall.routeName
+    tags: tags
   }
 }
 
@@ -157,6 +156,7 @@ module spk1 'network/spoke.bicep' = {
     subnetPrefix: spoke1.subnetPrefix
     subnetNsgName: spoke1.subnetNsgName
     routeTableId: fw.outputs.routeTableId
+    tags: tags
   }
 }
 
@@ -170,6 +170,7 @@ module spk2 'network/spoke.bicep' = {
     subnetPrefix: spoke2.subnetPrefix
     subnetNsgName: spoke2.subnetNsgName
     routeTableId: fw.outputs.routeTableId
+    tags: tags
   }
 }
 
@@ -237,17 +238,17 @@ module gateway 'gateway/main.bicep' = {
     adminPassword: adminPassword
     adminUsername: adminUsername
     gatewaySubnetName: gatewaySubnetName
-    signCertificateName: signCertificateName
-    // signCertificatePassword: signCertificatePassword
-    // signCertificateThumbprint: signCertificateThumbprint
+    gatewaySubnetAddressPrefix: gatewaySubnetAddressPrefix
+    bastionSubnetName: bastionSubnetName
+    bastionSubnetAddressPrefix: bastionSubnetAddressPrefix
+    appGatewaySubnetName: appGatewaySubnetName
+    appGatewaySubnetAddressPrefix: appGatewaySubnetAddressPrefix
+    privateIPAddress: privateIPAddress
     sslCertificateName: sslCertificateName
-    // sslCertificatePassword: sslCertificatePassword
-    // sslCertificateThumbprint: sslCertificateThumbprint
     tokenLifetime: tokenLifetime
     utcValue: utcValue
     vnet: hb.outputs.vnetId
-    // privateIPAddress: '10.0.0.4'
-    // publicIPAddress:
+    tags: tags
   }
 }
 
@@ -281,6 +282,7 @@ output lab2 object = {
 //     name: 'Spoke1Lab'
 //     gatewayHostname: gateway.outputs.gateway.fqdn
 //     gatewayToken:
+//     tags: tags
 //   }
 // }
 
@@ -289,5 +291,6 @@ output lab2 object = {
 //   scope: spk2rg
 //   params: {
 //     name: 'Spoke2Lab'
+//     tags: tags
 //   }
 // }

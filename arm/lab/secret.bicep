@@ -4,6 +4,8 @@ param value string
 param name string
 param vaultName string
 
+param tags object = {}
+
 resource secret 'Microsoft.KeyVault/vaults/secrets@2019-09-01' = {
   name: '${vaultName}/${name}'
   properties: {
@@ -12,4 +14,5 @@ resource secret 'Microsoft.KeyVault/vaults/secrets@2019-09-01' = {
       enabled: true
     }
   }
+  tags: tags
 }
