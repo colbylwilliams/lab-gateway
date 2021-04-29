@@ -7,6 +7,7 @@ param location string = deployment().location
 
 // ====================
 // Manual variables
+// ====================
 
 param tags object = {}
 

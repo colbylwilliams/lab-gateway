@@ -13,7 +13,7 @@ var privateDnsZoneLinkName = '${resourcePrefix}-dnslink'
 
 resource privateEndpoint 'Microsoft.Network/privateEndpoints@2020-05-01' = {
   name: privateEndpointName
-  location: 'eastus'
+  location: resourceGroup().location
   properties: {
     subnet: {
       id: subnet
