@@ -55,21 +55,9 @@ jobs:
           node-version: '12'
 
       - name: Prepare Assets
-        id: prepare-assets
+        id: prepare_assets
         run: python ./tools/create-index.py ${{ steps.gitversion.outputs.majorMinorPatch }}
 
-      - name: Get Release
-        id: publish-assets
-        uses: actions/github-script@v4
-        with:
-          script: |
-            let assets = JSON.parse('${{steps.prepare-assets.outputs.assets}}');
-
-            console.log(assets);
-
-            console.log('');
-
-            assets.forEach(a => console.log(`name: ${a.name}\npath: ${a.path}\n`));
       # - name: Get CLI Version
       #   id: cli_version
       #   run: python ./tools/cli-version.py
@@ -85,6 +73,49 @@ jobs:
       #     release_name: 'v${{ steps.gitversion.outputs.majorMinorPatch }}-pre'
       #     body: 'Pre-release build.'
       #     prerelease: true
+
+      # - name: Create Release
+      #   id: create_release
+      #   uses: actions/create-release@v1
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #   with:
+      #     tag_name: 'v${{ steps.gitversion.outputs.majorMinorPatch }}'
+      #     release_name: 'v${{ steps.gitversion.outputs.majorMinorPatch }}-pre'
+      #     body: 'Pre-release build.'
+      #     prerelease: true
+
+      - name: Publish Release Assets
+        id: publish_assets
+        uses: actions/github-script@v4
+        with:
+          script: |
+
+            const fs = require('fs');
+
+            let assets = JSON.parse('${{steps.prepare_assets.outputs.assets}}');
+
+            console.log(assets);
+
+            console.log('');
+
+
+            const release = await github.repos.createRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: 'v${{ steps.gitversion.outputs.majorMinorPatch }}',
+              name: 'v${{ steps.gitversion.outputs.majorMinorPatch }}-pre',
+              prerelease: true,
+              body: 'Pre-release build.'
+            });
+
+            assets.forEach(async a => await github.repos.uploadReleaseAsset({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              release_id: release.id,
+              name: a.name,
+              data: fs.readFileSync(a.path)
+            }));
       # - name: Upload Release Asset - Gateway.zip
       #   uses: actions/upload-release-asset@v1
       #   env:
