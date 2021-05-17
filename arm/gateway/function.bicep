@@ -1,5 +1,6 @@
+param resourcePrefix string = 'rdg${uniqueString(resourceGroup().id)}'
+
 param keyVaultName string
-param resourcePrefix string
 param tokenLifetime string = '00:01:00'
 
 @secure()

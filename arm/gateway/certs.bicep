@@ -50,7 +50,8 @@ resource script 'Microsoft.Resources/deploymentScripts@2020-10-01' = {
   }
   properties: {
     forceUpdateTag: utcValue
-    azCliVersion: '2.18.0'
+    // azCliVersion: '2.18.0'
+    azCliVersion: '2.23.0'
     timeout: 'PT1H'
     arguments: '-v ${keyVaultName} -x ${signCertificateName}'
     cleanupPreference: 'Always'

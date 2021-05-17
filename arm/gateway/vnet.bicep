@@ -1,17 +1,24 @@
-param resourcePrefix string
+param resourcePrefix string = 'rdg${uniqueString(resourceGroup().id)}'
 
 param vnet string = ''
 
-param addressPrefixes array
+param addressPrefixes array = [
+  '10.0.0.0/16'
+]
 
 param gatewaySubnetName string = 'RDGatewaySubnet'
-param gatewaySubnetAddressPrefix string
+param gatewaySubnetAddressPrefix string = '10.0.0.0/24'
 
 param bastionSubnetName string = 'AzureBastionSubnet' // MUST be AzureBastionSubnet, DO NOT change
-param bastionSubnetAddressPrefix string
+param bastionSubnetAddressPrefix string = '10.0.1.0/27'
 
 param appGatewaySubnetName string = 'AppGatewaySubnet'
-param appGatewaySubnetAddressPrefix string
+param appGatewaySubnetAddressPrefix string = '10.0.2.0/26'
+
+param firewallSubnetName string = 'AzureFirewallSubnet'
+param firewallSubnetAddressPrefix string = '10.0.3.0/26'
+
+param privateIPAddress string = '10.0.2.5' // MUST be within appGatewaySubnetAddressPrefix and cannot end in .0 - .4 (reserved)
 
 param tags object = {}
 
@@ -57,6 +64,14 @@ resource vnet_new 'Microsoft.Network/virtualNetworks@2020-06-01' = if (empty(vne
         name: appGatewaySubnetName
         properties: {
           addressPrefix: appGatewaySubnetAddressPrefix
+          privateEndpointNetworkPolicies: 'Disabled'
+          privateLinkServiceNetworkPolicies: 'Enabled'
+        }
+      }
+      {
+        name: firewallSubnetName
+        properties: {
+          addressPrefix: firewallSubnetAddressPrefix
           privateEndpointNetworkPolicies: 'Disabled'
           privateLinkServiceNetworkPolicies: 'Enabled'
         }

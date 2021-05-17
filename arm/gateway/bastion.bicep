@@ -1,5 +1,6 @@
+param resourcePrefix string = 'rdg${uniqueString(resourceGroup().id)}'
+
 param subnet string
-param resourcePrefix string
 
 param tags object = {}
 

@@ -1,4 +1,4 @@
-param resourcePrefix string
+param resourcePrefix string = 'rdg${uniqueString(resourceGroup().id)}'
 
 param site string
 param vnet string
