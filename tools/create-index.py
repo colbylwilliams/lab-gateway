@@ -13,49 +13,67 @@ version = args.version.lower()
 if version[:1].isdigit():
     version = 'v' + version
 
-templates = []
+# templates = []
 
-arm_dir = '{}/{}'.format(Path.cwd(), 'arm')
-# artifact_dir = '{}/{}'.format(Path.cwd(), 'arm/artifacts')
+# arm_dir = '{}/{}'.format(Path.cwd(), 'assets/arm')
 # arm_dir = '{}/{}'.format(Path.cwd(), 'tools/tmp/arm')
 
-with os.scandir(Path.cwd() / 'arm/gateway') as s:
-    for f in s:
-        if f.name.endswith('.bicep') and f.is_file():
-            name = f.name.rsplit('.bicep', 1)[0]
-            arm_name = '{}.json'.format(name)
-            templates.append({
-                'name': name,
-                'bicep': {
-                    'name': f.name,
-                    'path': f.path,
-                },
-                'arm': {
-                    'name': arm_name,
-                    'path': '{}/{}'.format(arm_dir, arm_name)
-                }
-            })
+# with os.scandir(Path.cwd() / 'arm/gateway') as s:
+#     for f in s:
+#         if f.name.endswith('.bicep') and f.is_file():
+#             name = f.name.rsplit('.bicep', 1)[0]
+#             arm_name = '{}.json'.format(name)
+#             templates.append({
+#                 'name': name,
+#                 'bicep': {
+#                     'name': f.name,
+#                     'path': f.path,
+#                 },
+#                 'arm': {
+#                     'name': arm_name,
+#                     'path': '{}/{}'.format(arm_dir, arm_name)
+#                 }
+#             })
 
-for t in templates:
-    print('Compiling template: {}'.format(t['name']))
-    subprocess.run(['az', 'bicep', 'build', '-f', t['bicep']['path'], '--outfile', t['arm']['path']])
+# for t in templates:
+#     print('Compiling template: {}'.format(t['name']))
+#     subprocess.run(['az', 'bicep', 'build', '-f', t['bicep']['path'], '--outfile', t['arm']['path']])
 
 index = {}
 assets = []
 
 index['arm'] = {}
+index['artifacts'] = {}
 
-for t in templates:
-    assets.append({'name': t['arm']['name'], 'path': t['arm']['path']})
-    index['arm'][t['name']] = {
-        'name': t['name'],
-        'version': '{}'.format(version),
-        'deployUrl': 'https://github.com/colbylwilliams/lab-gateway/releases/download/{}/{}'.format(version, t['arm']['name'])
-    }
+# for t in templates:
+#     assets.append({'name': t['arm']['name'], 'path': t['arm']['path']})
+#     index['arm'][t['name']] = {
+#         'name': t['name'],
+#         'version': '{}'.format(version),
+#         'url': 'https://github.com/colbylwilliams/lab-gateway/releases/download/{}/{}'.format(version, t['arm']['name'])
+#     }
 
-with os.scandir(Path.cwd() / 'arm/artifacts') as s:
+with os.scandir(Path.cwd() / 'assets/arm') as s:
     for f in s:
-        assets.append({'name': f.name, 'path': f.path})
+        if f.is_file():
+            name = f.name.rsplit('.', 1)[0]
+            assets.append({'name': f.name, 'path': f.path})
+            index['arm'][name] = {
+                'name': f.name,
+                'version': '{}'.format(version),
+                'url': 'https://github.com/colbylwilliams/lab-gateway/releases/download/{}/{}'.format(version, f.name)
+            }
+
+with os.scandir(Path.cwd() / 'assets/artifacts') as s:
+    for f in s:
+        if f.is_file():
+            name = f.name.rsplit('.', 1)[0]
+            assets.append({'name': f.name, 'path': f.path})
+            index['artifacts'][name] = {
+                'name': f.name,
+                'version': '{}'.format(version),
+                'url': 'https://github.com/colbylwilliams/lab-gateway/releases/download/{}/{}'.format(version, f.name)
+            }
 
 index['gateway'] = {
     'version': '{}'.format(version),
