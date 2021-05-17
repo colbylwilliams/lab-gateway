@@ -16,6 +16,7 @@ if version[:1].isdigit():
 templates = []
 
 arm_dir = '{}/{}'.format(Path.cwd(), 'arm')
+# artifact_dir = '{}/{}'.format(Path.cwd(), 'arm/artifacts')
 # arm_dir = '{}/{}'.format(Path.cwd(), 'tools/tmp/arm')
 
 with os.scandir(Path.cwd() / 'arm/gateway') as s:
@@ -39,8 +40,6 @@ for t in templates:
     print('Compiling template: {}'.format(t['name']))
     subprocess.run(['az', 'bicep', 'build', '-f', t['bicep']['path'], '--outfile', t['arm']['path']])
 
-print("::set-output name=templates::{}".format(json.dumps(templates)))
-
 index = {}
 assets = []
 
@@ -54,24 +53,33 @@ for t in templates:
         'deployUrl': 'https://github.com/colbylwilliams/lab-gateway/releases/download/{}/{}'.format(version, t['arm']['name'])
     }
 
-print("::set-output name=assets::{}".format(json.dumps(assets)))
+with os.scandir(Path.cwd() / 'arm/artifacts') as s:
+    for f in s:
+        assets.append({'name': f.name, 'path': f.path})
 
 index['gateway'] = {
     'version': '{}'.format(version),
-    'deployUrl': 'https://github.com/colbylwilliams/lab-gateway/releases/download/{}/azuredeploy.json'.format(version),
+    # 'deployUrl': 'https://github.com/colbylwilliams/lab-gateway/releases/download/{}/azuredeploy.json'.format(version),
     'zipUrl': 'https://github.com/colbylwilliams/lab-gateway/releases/download/{}/Gateway.zip'.format(version),
-    'scriptUrl': 'https://github.com/colbylwilliams/lab-gateway/releases/download/{}/gateway.ps1'.format(version),
+    # 'scriptUrl': 'https://github.com/colbylwilliams/lab-gateway/releases/download/{}/gateway.ps1'.format(version),
 }
 
-index['lab'] = {
-    'version': '{}'.format(version),
-    'deployUrl': 'https://github.com/colbylwilliams/lab-gateway/releases/download/{}/azuredeploy.lab.json'.format(version),
-}
+assets.append({'name': 'Gateway.zip', 'path': '{}/{}'.format(Path.cwd(), 'Gateway.zip')})
+
+# index['lab'] = {
+#     'version': '{}'.format(version),
+#     'deployUrl': 'https://github.com/colbylwilliams/lab-gateway/releases/download/{}/azuredeploy.lab.json'.format(version),
+# }
+
 
 with open(Path.cwd() / 'index.json', 'w') as f:
     # with open(Path.cwd() / 'tools/tmp/index.json', 'w') as f:
     json.dump(index, f, ensure_ascii=False, indent=4, sort_keys=True)
 
-with open(Path.cwd() / 'assets.json', 'w') as f:
-    # with open(Path.cwd() / 'tools/tmp/assets.json', 'w') as f:
-    json.dump(assets, f, ensure_ascii=False, indent=4, sort_keys=True)
+assets.append({'name': 'index.json', 'path': '{}/{}'.format(Path.cwd(), 'index.json')})
+
+# with open(Path.cwd() / 'assets.json', 'w') as f:
+#     # with open(Path.cwd() / 'tools/tmp/assets.json', 'w') as f:
+#     json.dump(assets, f, ensure_ascii=False, indent=4, sort_keys=True)
+
+print("::set-output name=assets::{}".format(json.dumps(assets)))

@@ -100,7 +100,7 @@ jobs:
             console.log('');
 
 
-            const release = await github.repos.createRelease({
+            const releaseResult = await github.repos.createRelease({
               owner: context.repo.owner,
               repo: context.repo.repo,
               tag_name: 'v${{ steps.gitversion.outputs.majorMinorPatch }}',
@@ -109,20 +109,12 @@ jobs:
               body: 'Pre-release build.'
             });
 
-            console.log(release);
-            console.log('');
-            console.log(JSON.stringify(release));
-            console.log('');
-
-            console.log(release.data);
-            console.log('');
-            console.log(JSON.stringify(release.data));
-            console.log('');
+            const release = releaseResult.data;
 
             assets.forEach(async a => await github.repos.uploadReleaseAsset({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              release_id: release.data.id,
+              release_id: release.id,
               name: a.name,
               data: fs.readFileSync(a.path)
             }));
