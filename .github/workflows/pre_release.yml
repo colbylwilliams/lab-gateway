@@ -86,9 +86,9 @@ jobs:
 
             const assets = JSON.parse('${{steps.prepare_assets.outputs.assets}}');
 
-            # const cli_name = 'lab_gateway-${{ steps.cli_version.outputs.version }}-py2.py3-none-any.whl';
+            // const cli_name = 'lab_gateway-${{ steps.cli_version.outputs.version }}-py2.py3-none-any.whl';
 
-            # assets.append({'name': cli_name, 'path': 'dist/' + cli_name});
+            // assets.append({'name': cli_name, 'path': 'dist/' + cli_name});
 
             const releaseResult = await github.repos.createRelease({
               owner: context.repo.owner,
