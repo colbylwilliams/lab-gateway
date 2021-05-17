@@ -54,7 +54,7 @@ jobs:
         with:
           node-version: '12'
 
-      - name: Setup Assets Directory`
+      - name: Setup Assets Directory
         uses: actions/github-script@v4
         with:
           script: |
