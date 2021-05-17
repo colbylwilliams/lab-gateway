@@ -84,8 +84,10 @@ function Install-ApplicationRequestRouting {
         [string] $Hostname
     )
 
-    $msiUrl = "https://download.microsoft.com/download/C/F/F/CFF3A0B8-99D4-41A2-AE1A-496C08BEB904/WebPlatformInstaller_amd64_en-US.msi"
-    $msiPath = (Join-Path $PSScriptRoot ($msiUrl.Substring($msiUrl.LastIndexOf("/") + 1))) + ".msi"
+    # $msiUrl = "https://download.microsoft.com/download/C/F/F/CFF3A0B8-99D4-41A2-AE1A-496C08BEB904/WebPlatformInstaller_amd64_en-US.msi"
+    # $msiPath = (Join-Path $PSScriptRoot ($msiUrl.Substring($msiUrl.LastIndexOf("/") + 1))) + ".msi"
+    $msiUrl = "https://go.microsoft.com/fwlink/?LinkId=287166"
+    $msiPath = Join-Path $PSScriptRoot "WebPlatformInstaller_amd64_en-US.msi"
 
     if (!(Test-Path $msiPath -PathType leaf)) {
 
