@@ -15,7 +15,8 @@ if version[:1].isdigit():
 
 templates = []
 
-arm_dir = '{}/{}'.format(Path.cwd(), 'tools/tmp/arm')
+arm_dir = '{}/{}'.format(Path.cwd(), 'arm')
+# arm_dir = '{}/{}'.format(Path.cwd(), 'tools/tmp/arm')
 
 with os.scandir(Path.cwd() / 'arm/gateway') as s:
     for f in s:
