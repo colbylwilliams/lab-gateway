@@ -109,10 +109,20 @@ jobs:
               body: 'Pre-release build.'
             });
 
+            console.log(release);
+            console.log('');
+            console.log(JSON.stringify(release));
+            console.log('');
+
+            console.log(release.data);
+            console.log('');
+            console.log(JSON.stringify(release.data));
+            console.log('');
+
             assets.forEach(async a => await github.repos.uploadReleaseAsset({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              release_id: release.id,
+              release_id: release.data.id,
               name: a.name,
               data: fs.readFileSync(a.path)
             }));
