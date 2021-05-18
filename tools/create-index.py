@@ -23,6 +23,7 @@ assets = []
 with os.scandir(Path.cwd() / 'assets/arm') as s:
     for f in s:
         if f.is_file():
+            print(f.path)
             name = f.name.rsplit('.', 1)[0]
             assets.append({'name': f.name, 'path': f.path})
             index['arm'][name] = {
@@ -34,6 +35,7 @@ with os.scandir(Path.cwd() / 'assets/arm') as s:
 with os.scandir(Path.cwd() / 'assets/artifacts') as s:
     for f in s:
         if f.is_file():
+            print(f.path)
             name = f.name.rsplit('.', 1)[0]
             assets.append({'name': f.name, 'path': f.path})
             index['artifacts'][name] = {
