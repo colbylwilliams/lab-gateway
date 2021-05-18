@@ -60,8 +60,8 @@ jobs:
           script: |
 
             await io.mkdirP('assets/arm')
-            await io.mkdirP('assets/artifacts')
-            const options = { recursive: true, force: false, copySourceDirectory: true}
+            # await io.mkdirP('assets/artifacts')
+            const options = { recursive: true, force: false, copySourceDirectory: true }
             await io.cp('arm/artifacts', 'assets/artifacts', options);
 
       - name: Compile Bicep to ARM
