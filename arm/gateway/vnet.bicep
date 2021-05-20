@@ -87,13 +87,16 @@ resource vnet_new 'Microsoft.Network/virtualNetworks@2020-06-01' = if (empty(vne
 //   scope: rg_vnet_existing
 // }
 
-resource gateway_subnet 'Microsoft.Network/virtualNetworks/subnets@2020-06-01' = if (!empty(gatewaySubnetAddressPrefix)) {
+resource gateway_subnet 'Microsoft.Network/virtualNetworks/subnets@2020-06-01' = if (empty(vnet) && !empty(gatewaySubnetAddressPrefix)) {
   name: '${vnetName}/${gatewaySubnetName}'
   properties: {
     addressPrefix: gatewaySubnetAddressPrefix
     privateEndpointNetworkPolicies: 'Disabled'
     privateLinkServiceNetworkPolicies: 'Enabled'
   }
+  dependsOn: [
+    vnet_new
+  ]
 }
 
 // resource bastion_subnet_existing 'Microsoft.Network/virtualNetworks/subnets@2020-06-01' existing = if(!empty(vnet) && empty(bastionSubnetAddressPrefix)) {
@@ -101,13 +104,16 @@ resource gateway_subnet 'Microsoft.Network/virtualNetworks/subnets@2020-06-01' =
 //   scope: rg_vnet_existing
 // }
 
-resource bastion_subnet 'Microsoft.Network/virtualNetworks/subnets@2020-06-01' = if (!empty(bastionSubnetAddressPrefix)) {
+resource bastion_subnet 'Microsoft.Network/virtualNetworks/subnets@2020-06-01' = if (empty(vnet) && !empty(bastionSubnetAddressPrefix)) {
   name: '${vnetName}/${bastionSubnetName}'
   properties: {
     addressPrefix: bastionSubnetAddressPrefix
     privateEndpointNetworkPolicies: 'Disabled'
     privateLinkServiceNetworkPolicies: 'Enabled'
   }
+  dependsOn: [
+    vnet_new
+  ]
 }
 
 // resource appgateway_subnet_existing 'Microsoft.Network/virtualNetworks/subnets@2020-06-01' existing = if(!empty(vnet) && empty(appGatewaySubnetAddressPrefix)) {
@@ -115,13 +121,16 @@ resource bastion_subnet 'Microsoft.Network/virtualNetworks/subnets@2020-06-01' =
 //   scope: rg_vnet_existing
 // }
 
-resource appgateway_subnet 'Microsoft.Network/virtualNetworks/subnets@2020-06-01' = if (!empty(appGatewaySubnetAddressPrefix)) {
+resource appgateway_subnet 'Microsoft.Network/virtualNetworks/subnets@2020-06-01' = if (empty(vnet) && !empty(appGatewaySubnetAddressPrefix)) {
   name: '${vnetName}/${appGatewaySubnetName}'
   properties: {
     addressPrefix: appGatewaySubnetName
     privateEndpointNetworkPolicies: 'Disabled'
     privateLinkServiceNetworkPolicies: 'Enabled'
   }
+  dependsOn: [
+    vnet_new
+  ]
 }
 
 output id string = vnetId
