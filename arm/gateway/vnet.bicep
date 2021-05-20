@@ -2,23 +2,22 @@ param resourcePrefix string = 'rdg${uniqueString(resourceGroup().id)}'
 
 param vnet string = ''
 
-param addressPrefixes array = [
-  '10.0.0.0/16'
-]
+param addressPrefixes array //= [
+//   '10.0.0.0/16'
+// ]
 
-param gatewaySubnetName string = 'RDGatewaySubnet'
-param gatewaySubnetAddressPrefix string = '10.0.0.0/24'
+param gatewaySubnetName string // = 'RDGatewaySubnet'
+param gatewaySubnetAddressPrefix string = '' // '10.0.0.0/24'
 
-param bastionSubnetName string = 'AzureBastionSubnet' // MUST be AzureBastionSubnet, DO NOT change
-param bastionSubnetAddressPrefix string = '10.0.1.0/27'
+param bastionSubnetAddressPrefix string = '' // '10.0.1.0/27'
 
-param appGatewaySubnetName string = 'AppGatewaySubnet'
-param appGatewaySubnetAddressPrefix string = '10.0.2.0/26'
+param appGatewaySubnetName string // = 'AppGatewaySubnet'
+param appGatewaySubnetAddressPrefix string = '' // '10.0.2.0/26'
 
-param firewallSubnetName string = 'AzureFirewallSubnet'
-param firewallSubnetAddressPrefix string = '10.0.3.0/26'
+var bastionSubnetName = 'AzureBastionSubnet' // MUST be AzureBastionSubnet, DO NOT change
 
-param privateIPAddress string = '10.0.2.5' // MUST be within appGatewaySubnetAddressPrefix and cannot end in .0 - .4 (reserved)
+// param firewallSubnetName string = 'AzureFirewallSubnet'
+// param firewallSubnetAddressPrefix string = '10.0.3.0/26'
 
 param tags object = {}
 
@@ -43,44 +42,86 @@ resource vnet_new 'Microsoft.Network/virtualNetworks@2020-06-01' = if (empty(vne
     addressSpace: {
       addressPrefixes: addressPrefixes
     }
-    subnets: [
-      {
-        name: gatewaySubnetName
-        properties: {
-          addressPrefix: gatewaySubnetAddressPrefix
-          privateEndpointNetworkPolicies: 'Disabled'
-          privateLinkServiceNetworkPolicies: 'Enabled'
-        }
-      }
-      {
-        name: bastionSubnetName
-        properties: {
-          addressPrefix: bastionSubnetAddressPrefix
-          privateEndpointNetworkPolicies: 'Disabled'
-          privateLinkServiceNetworkPolicies: 'Enabled'
-        }
-      }
-      {
-        name: appGatewaySubnetName
-        properties: {
-          addressPrefix: appGatewaySubnetAddressPrefix
-          privateEndpointNetworkPolicies: 'Disabled'
-          privateLinkServiceNetworkPolicies: 'Enabled'
-        }
-      }
-      {
-        name: firewallSubnetName
-        properties: {
-          addressPrefix: firewallSubnetAddressPrefix
-          privateEndpointNetworkPolicies: 'Disabled'
-          privateLinkServiceNetworkPolicies: 'Enabled'
-        }
-      }
-    ]
+    subnets: []
+    // {
+    //   name: gatewaySubnetName
+    //   properties: {
+    //     addressPrefix: gatewaySubnetAddressPrefix
+    //     privateEndpointNetworkPolicies: 'Disabled'
+    //     privateLinkServiceNetworkPolicies: 'Enabled'
+    //   }
+    // }
+    // {
+    //   name: bastionSubnetName
+    //   properties: {
+    //     addressPrefix: bastionSubnetAddressPrefix
+    //     privateEndpointNetworkPolicies: 'Disabled'
+    //     privateLinkServiceNetworkPolicies: 'Enabled'
+    //   }
+    // }
+    // {
+    //   name: appGatewaySubnetName
+    //   properties: {
+    //     addressPrefix: appGatewaySubnetAddressPrefix
+    //     privateEndpointNetworkPolicies: 'Disabled'
+    //     privateLinkServiceNetworkPolicies: 'Enabled'
+    //   }
+    // }
+    // {
+    //   name: firewallSubnetName
+    //   properties: {
+    //     addressPrefix: firewallSubnetAddressPrefix
+    //     privateEndpointNetworkPolicies: 'Disabled'
+    //     privateLinkServiceNetworkPolicies: 'Enabled'
+    //   }
+    // }
+    // ]
     enableDdosProtection: false
     enableVmProtection: false
   }
   tags: tags
+}
+
+// resource gateway_subnet_existing 'Microsoft.Network/virtualNetworks/subnets@2020-06-01' existing = if(!empty(vnet) && empty(gatewaySubnetAddressPrefix)) {
+//   name: '${vnetName}/${gatewaySubnetName}'
+//   scope: rg_vnet_existing
+// }
+
+resource gateway_subnet 'Microsoft.Network/virtualNetworks/subnets@2020-06-01' = if (!empty(gatewaySubnetAddressPrefix)) {
+  name: '${vnetName}/${gatewaySubnetName}'
+  properties: {
+    addressPrefix: gatewaySubnetAddressPrefix
+    privateEndpointNetworkPolicies: 'Disabled'
+    privateLinkServiceNetworkPolicies: 'Enabled'
+  }
+}
+
+// resource bastion_subnet_existing 'Microsoft.Network/virtualNetworks/subnets@2020-06-01' existing = if(!empty(vnet) && empty(bastionSubnetAddressPrefix)) {
+//   name: '${vnetName}/${bastionSubnetName}'
+//   scope: rg_vnet_existing
+// }
+
+resource bastion_subnet 'Microsoft.Network/virtualNetworks/subnets@2020-06-01' = if (!empty(bastionSubnetAddressPrefix)) {
+  name: '${vnetName}/${bastionSubnetName}'
+  properties: {
+    addressPrefix: bastionSubnetAddressPrefix
+    privateEndpointNetworkPolicies: 'Disabled'
+    privateLinkServiceNetworkPolicies: 'Enabled'
+  }
+}
+
+// resource appgateway_subnet_existing 'Microsoft.Network/virtualNetworks/subnets@2020-06-01' existing = if(!empty(vnet) && empty(appGatewaySubnetAddressPrefix)) {
+//   name: '${vnetName}/${appGatewaySubnetName}'
+//   scope: rg_vnet_existing
+// }
+
+resource appgateway_subnet 'Microsoft.Network/virtualNetworks/subnets@2020-06-01' = if (!empty(appGatewaySubnetAddressPrefix)) {
+  name: '${vnetName}/${appGatewaySubnetName}'
+  properties: {
+    addressPrefix: appGatewaySubnetName
+    privateEndpointNetworkPolicies: 'Disabled'
+    privateLinkServiceNetworkPolicies: 'Enabled'
+  }
 }
 
 output id string = vnetId

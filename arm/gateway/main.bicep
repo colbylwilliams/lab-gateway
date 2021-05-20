@@ -1,3 +1,5 @@
+param resourcePrefix string = 'rdg${uniqueString(resourceGroup().id)}'
+
 param utcValue string = utcNow('u')
 
 @description('Admin username on all VMs.')
@@ -12,7 +14,7 @@ param tokenLifetime string = '00:01:00'
 
 param hostName string
 
-param sslCertificateName string = 'SSLCertificate'
+param sslCertificateName string //= 'SSLCertificate'
 
 param vnet string = ''
 param publicIPAddress string = ''
@@ -25,30 +27,29 @@ param tokenPrivateEndpoint bool = true
 param tags object = {}
 
 // only used if an existing VNet is NOT provided
-param vnetAddressPrefixs array = [
-  '10.0.0.0/16'
-]
+param vnetAddressPrefixs array // = [
+//   '10.0.0.0/16'
+// ]
 
 // If an existing VNet is provided, the following subnets must exist
 // update the address prefixes with the prefixes used in the subnets
 
-param gatewaySubnetName string = 'RDGatewaySubnet'
-param gatewaySubnetAddressPrefix string = '10.0.0.0/24'
+param gatewaySubnetName string // = 'RDGatewaySubnet'
+param gatewaySubnetAddressPrefix string // = '10.0.0.0/24'
 
-param bastionSubnetName string = 'AzureBastionSubnet' // MUST be AzureBastionSubnet, DO NOT change
-param bastionSubnetAddressPrefix string = '10.0.1.0/27' // MUST be at least /27 or larger
+param bastionSubnetAddressPrefix string // = '10.0.1.0/27' // MUST be at least /27 or larger
 
-param appGatewaySubnetName string = 'AppGatewaySubnet'
-param appGatewaySubnetAddressPrefix string = '10.0.2.0/26' // MUST be at least /26 or larger
+param appGatewaySubnetName string // = 'AppGatewaySubnet'
+param appGatewaySubnetAddressPrefix string // = '10.0.2.0/26' // MUST be at least /26 or larger
 
-param firewallSubnetName string = 'AzureFirewallSubnet'
-param firewallSubnetAddressPrefix string = '10.0.3.0/26'
+// param firewallSubnetName string = 'AzureFirewallSubnet'
+// param firewallSubnetAddressPrefix string = '10.0.3.0/26'
 
-param privateIPAddress string = '10.0.2.5' // MUST be within appGatewaySubnetAddressPrefix and cannot end in .0 - .4 (reserved)
+param privateIPAddress string //= '' // = '10.0.2.5' // MUST be within appGatewaySubnetAddressPrefix and cannot end in .0 - .4 (reserved)
 
 // ====================
 
-var resourcePrefix = 'rdg${uniqueString(resourceGroup().id)}'
+// var resourcePrefix = 'rdg${uniqueString(resourceGroup().id)}'
 
 var keyVaultName = '${resourcePrefix}-kv'
 
@@ -117,12 +118,11 @@ module gwVnet 'vnet.bicep' = {
     addressPrefixes: vnetAddressPrefixs
     gatewaySubnetName: gatewaySubnetName
     gatewaySubnetAddressPrefix: gatewaySubnetAddressPrefix
-    bastionSubnetName: bastionSubnetName
     bastionSubnetAddressPrefix: bastionSubnetAddressPrefix
     appGatewaySubnetName: appGatewaySubnetName
     appGatewaySubnetAddressPrefix: appGatewaySubnetAddressPrefix
-    firewallSubnetName: firewallSubnetName
-    firewallSubnetAddressPrefix: firewallSubnetAddressPrefix
+    // firewallSubnetName: firewallSubnetName
+    // firewallSubnetAddressPrefix: firewallSubnetAddressPrefix
     tags: tags
   }
 }
