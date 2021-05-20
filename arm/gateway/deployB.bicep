@@ -21,6 +21,8 @@ param publicIPAddress string = ''
 
 param tokenPrivateEndpoint bool = true
 
+param instanceCount int
+
 // only used if an existing VNet is NOT provided
 param vnetAddressPrefixs array
 
@@ -33,7 +35,7 @@ param gatewaySubnetAddressPrefix string
 param bastionSubnetAddressPrefix string // MUST be at least /27 or larger
 
 param appGatewaySubnetName string
-param appGatewaySubnetAddressPrefix string // = '10.0.2.0/26' // MUST be at least /26 or larger
+param appGatewaySubnetAddressPrefix string // MUST be at least /26 or larger
 
 // param firewallSubnetName string = 'AzureFirewallSubnet'
 // param firewallSubnetAddressPrefix string = '10.0.3.0/26'
@@ -150,8 +152,8 @@ module vmss 'vmss.bicep' = {
     storageAccountKey: storage.outputs.accountKey
     storageArtifactsEndpoint: storage.outputs.artifactsEndpoint
     subnet: gwVnet.outputs.gatewaySubnet
-    keyVault: kv.outputs.id
     keyVaultName: kv.outputs.name
+    instanceCount: instanceCount
     functionHostName: functionApp.outputs.defaultHostName
     sslCertificateSecretUri: sslCertificateSecretUri
     signCertificateSecretUri: certs.outputs.signCertificateSecretUri
@@ -169,11 +171,6 @@ module privateEndpointDeployment 'privateEndpoint.bicep' = if (tokenPrivateEndpo
     subnet: gwVnet.outputs.gatewaySubnet
     tags: tags
   }
-}
-
-output artifactsStorage object = {
-  account: storage.outputs.accountName
-  container: storage.outputs.artifactsContainerName
 }
 
 output gateway object = {

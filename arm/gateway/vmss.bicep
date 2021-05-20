@@ -10,9 +10,10 @@ param storageAccountKey string
 param storageArtifactsEndpoint string
 
 param subnet string
-param keyVault string
 param keyVaultName string
 param functionHostName string
+
+param instanceCount int
 
 param sslCertificateSecretUri string
 param signCertificateSecretUri string
@@ -54,7 +55,7 @@ resource vmss 'Microsoft.Compute/virtualMachineScaleSets@2020-06-01' = {
   }
   sku: {
     name: 'Standard_B4ms'
-    capacity: 0
+    capacity: instanceCount
   }
   properties: {
     overprovision: true

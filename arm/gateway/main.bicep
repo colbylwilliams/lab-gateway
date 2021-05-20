@@ -162,8 +162,8 @@ module vmss 'vmss.bicep' = {
     storageAccountKey: storage.outputs.accountKey
     storageArtifactsEndpoint: storage.outputs.artifactsEndpoint
     subnet: gwVnet.outputs.gatewaySubnet
-    keyVault: kv.outputs.id
     keyVaultName: kv.outputs.name
+    instanceCount: 0
     functionHostName: functionApp.outputs.defaultHostName
     sslCertificateSecretUri: sslCertificateSecretUri // certs.outputs.sslCertificateSecretUri
     signCertificateSecretUri: certs.outputs.signCertificateSecretUri

@@ -47,9 +47,6 @@ output keyvault object = {
 }
 
 output storage object = {
-  account: storage.outputs.accountName
-  accountKey: storage.outputs.accountKey
   connectionString: storage.outputs.connectionString
-  artifactsEndpoint: storage.outputs.artifactsEndpoint
   artifactsContainerName: storage.outputs.artifactsContainerName
 }
