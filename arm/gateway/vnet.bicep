@@ -6,12 +6,12 @@ param addressPrefixes array //= [
 //   '10.0.0.0/16'
 // ]
 
-param gatewaySubnetName string // = 'RDGatewaySubnet'
+param gatewaySubnetName string
 param gatewaySubnetAddressPrefix string = '' // '10.0.0.0/24'
 
 param bastionSubnetAddressPrefix string = '' // '10.0.1.0/27'
 
-param appGatewaySubnetName string // = 'AppGatewaySubnet'
+param appGatewaySubnetName string
 param appGatewaySubnetAddressPrefix string = '' // '10.0.2.0/26'
 
 var bastionSubnetName = 'AzureBastionSubnet' // MUST be AzureBastionSubnet, DO NOT change
@@ -124,7 +124,7 @@ resource bastion_subnet 'Microsoft.Network/virtualNetworks/subnets@2020-06-01' =
 resource appgateway_subnet 'Microsoft.Network/virtualNetworks/subnets@2020-06-01' = if (empty(vnet) && !empty(appGatewaySubnetAddressPrefix)) {
   name: '${vnetName}/${appGatewaySubnetName}'
   properties: {
-    addressPrefix: appGatewaySubnetName
+    addressPrefix: appGatewaySubnetAddressPrefix
     privateEndpointNetworkPolicies: 'Disabled'
     privateLinkServiceNetworkPolicies: 'Enabled'
   }
