@@ -40,13 +40,6 @@ module storage 'storage.bicep' = {
 }
 
 output resourcePrefix string = resourcePrefix
-
-output keyvault object = {
-  id: kv.outputs.id
-  name: kv.outputs.name
-}
-
-output storage object = {
-  connectionString: storage.outputs.connectionString
-  artifactsContainerName: storage.outputs.artifactsContainerName
-}
+output keyvaultName string = kv.outputs.name
+output storageConnectionString string = storage.outputs.connectionString
+output artifactsContainerName string = storage.outputs.artifactsContainerName

@@ -173,8 +173,6 @@ module privateEndpointDeployment 'privateEndpoint.bicep' = if (tokenPrivateEndpo
   }
 }
 
-output gateway object = {
-  scaleSet: vmss.outputs.name
-  function: functionApp.outputs.name
-  ip: gw.outputs.ip
-}
+output scaleSetName string = vmss.outputs.name
+output functionName string = functionApp.outputs.name
+output publicIpAddress string = gw.outputs.ip
