@@ -10,7 +10,7 @@ arm_dir = '{}/{}'.format(Path.cwd(), 'assets/arm')
 
 with os.scandir(Path.cwd() / 'arm/gateway') as s:
     for f in s:
-        if f.name.endswith('.bicep') and f.is_file():
+        if f.name.startswith('deploy') and f.name.endswith('.bicep') and f.is_file():
             name = f.name.rsplit('.bicep', 1)[0]
             arm_name = '{}.json'.format(name)
             templates.append({
