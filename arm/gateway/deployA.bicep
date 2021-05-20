@@ -39,7 +39,7 @@ module storage 'storage.bicep' = {
   }
 }
 
-output prefix string = resourcePrefix
+output resourcePrefix string = resourcePrefix
 
 output keyvault object = {
   id: kv.outputs.id
