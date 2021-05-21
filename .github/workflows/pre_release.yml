@@ -89,7 +89,7 @@ jobs:
 
             const cli_name = 'lab_gateway-${{ steps.cli_version.outputs.version }}-py2.py3-none-any.whl';
 
-            assets.append({'name': cli_name, 'path': 'dist/' + cli_name});
+            assets.push({'name': cli_name, 'path': 'dist/' + cli_name});
 
             const releaseResult = await github.repos.createRelease({
               owner: context.repo.owner,
