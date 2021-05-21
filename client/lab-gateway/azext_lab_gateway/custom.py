@@ -2,70 +2,170 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License. See License.txt in the project root for license information.
 # --------------------------------------------------------------------------------------------
-# pylint: disable=unused-argument, protected-access, too-many-lines
+# pylint: disable=unused-argument, too-many-statements, too-many-locals, too-many-lines
 
-from knack.util import CLIError
+import json
+import requests
 from knack.log import get_logger
+from azure.cli.core.profiles import ResourceType, get_sdk
+from ._utils import (get_user_info)
+from ._github_utils import (get_release_index, get_arm_template, get_artifact)
+from ._deploy_utils import (get_function_key, get_arm_output, import_certificate,
+                            deploy_arm_template_at_resource_group)
+
 
 logger = get_logger(__name__)
 
 
-# def _ensure_base_url(client, base_url):
-#     client._client._base_url = base_url
+def lab_gateway_create(cmd, resource_group_name, admin_username, admin_password, auth_msi,
+                       ssl_cert, ssl_cert_password, instance_count=1, token_lifetime=1,
+                       vnet=None, vnet_address_prefix='10.0.0.0/16', vnet_type=None,
+                       rdgateway_subnet='RDGatewaySubnet', rdgateway_subnet_address_prefix='10.0.0.0/24',
+                       appgateway_subnet='AppGatewaySubnet', appgateway_subnet_address_prefix='10.0.2.0/26',
+                       bastion_subnet='AzureBastionSubnet', bastion_subnet_address_prefix='10.0.1.0/27',
+                       rdgateway_subnet_type=None, appgateway_subnet_type=None, bastion_subnet_type=None,
+                       public_ip_address=None, public_ip_address_type=None, private_ip_address='10.0.2.5',
+                       location=None, tags=None, version=None, prerelease=False, index_url=None):
 
-def lab_gateway_deploy(cmd, client, resource_group_name, admin_username, admin_password, auth_msi,  # pylint: disable=too-many-statements, too-many-locals
-                       ssl_cert, ssl_cert_password, signing_cert=None, signing_cert_password=None,
-                       instance_count=1, location=None, tags=None, version=None, prerelease=False, index_url=None):
-    # from azure.cli.core._profile import Profile
-    from ._deploy_utils import (
-        get_index_gateway, deploy_arm_template_at_resource_group, get_resource_group_by_name,
-        create_resource_group_name)
-    # set_appconfig_keys, zip_deploy_app, get_arm_output)
+    version, _, arm_templates, artifacts = get_release_index(version, prerelease, index_url)
 
-    cli_ctx = cmd.cli_ctx
+    a_template = get_arm_template(arm_templates, 'deployA')
+    b_template = get_arm_template(arm_templates, 'deployB')
 
-    hook = cli_ctx.get_progress_controller()
-    hook.begin()
+    user_object_id, user_tenant_id = get_user_info(cmd)
 
-    hook.add(message='Fetching index.json from GitHub')
-    # version, deploy_url, zip_url, script_url = get_index_gateway(
-    version, deploy_url, _, _ = get_index_gateway(
-        cli_ctx, version, prerelease, index_url)
+    a_params = []
+    a_params.append('userId={}'.format(user_object_id))
+    a_params.append('tenantId={}'.format(user_tenant_id))
 
-    hook.add(message='Getting resource group {}'.format(resource_group_name))
-    rg, _ = get_resource_group_by_name(cli_ctx, resource_group_name)
-    if rg is None:
-        if location is None:
-            raise CLIError(
-                "--location/-l is required if resource group '{}' does not exist".format(resource_group_name))
-        hook.add(message="Resource group '{}' not found".format(resource_group_name))
-        hook.add(message="Creating resource group '{}'".format(resource_group_name))
-        rg, _ = create_resource_group_name(cli_ctx, resource_group_name, location)
+    a_outputs = deploy_arm_template_at_resource_group(cmd, resource_group_name,
+                                                      template_uri=a_template, parameters=[a_params])
 
-    # profile = Profile(cli_ctx=cli_ctx)
+    resource_prefix = get_arm_output(a_outputs, 'resourcePrefix')
+    keyvault_name = get_arm_output(a_outputs, 'keyvaultName')
+    storage_connection_string = get_arm_output(a_outputs, 'storageConnectionString')
+    storage_artifacts_container = get_arm_output(a_outputs, 'artifactsContainerName')
 
-    parameters = []
-    parameters.append('adminUsername={}'.format(admin_username))
-    parameters.append('adminPassword={}'.format(admin_password))
-    # parameters.append('sslCertificate={}'.format())
-    parameters.append('sslCertificatePassword={}'.format(ssl_cert_password))
-    # parameters.append('sslCertificateThumbprint={}'.format())
+    cert_name = 'SSLCertificate'
+    _, cert_cn, cert_secret_url = import_certificate(cmd, keyvault_name, cert_name, ssl_cert,
+                                                     password=ssl_cert_password)
 
-    if signing_cert:
-        # parameters.append('signCertificate={}'.format())
-        parameters.append('signCertificatePassword={}'.format(signing_cert_password))
-        # parameters.append('signCertificateThumbprint={}'.format())
+    # upload required assets to storage
 
-    hook.add(message='Deploying ARM template')
-    # outputs = deploy_arm_template_at_resource_group(
-    _ = deploy_arm_template_at_resource_group(
-        cmd, resource_group_name, template_uri=deploy_url, parameters=[parameters])
+    artifact_items = [get_artifact(artifacts, i) for i in artifacts]
 
-    result = {
-        'version': version or 'latest',
-        # 'name': name,
-        # 'base_url': api_url,
-        'location': rg.location,
+    BlobServiceClient = get_sdk(cmd.cli_ctx, ResourceType.DATA_STORAGE_BLOB,
+                                '_blob_service_client#BlobServiceClient')
+
+    blob_service_client = BlobServiceClient.from_connection_string(storage_connection_string)
+
+    for artifact_name, artifact_url in artifact_items:
+        blob_client = blob_service_client.get_blob_client(storage_artifacts_container, artifact_name)
+        response = requests.get(artifact_url)
+        blob_client.upload_blob(response.content)
+
+    blob_client = blob_service_client.get_blob_client(storage_artifacts_container, 'RDGatewayFedAuth.msi')
+    blob_client.upload_blob(auth_msi)
+
+    b_params = []
+    b_params.append('resourcePrefix={}'.format(resource_prefix))
+    b_params.append('adminUsername={}'.format(admin_username))
+    b_params.append('adminPassword={}'.format(admin_password))
+    b_params.append('tokenLifetime={}'.format(token_lifetime))
+    b_params.append('hostName={}'.format(cert_cn))
+    b_params.append('sslCertificateSecretUri={}'.format(cert_secret_url))
+    b_params.append('vnet={}'.format('' if vnet is None else vnet))
+    b_params.append('publicIPAddress={}'.format('' if public_ip_address is None else public_ip_address))
+    b_params.append('tokenPrivateEndpoint={}'.format('false'))
+    b_params.append('instanceCount={}'.format(instance_count))
+    b_params.append('vnetAddressPrefixs={}'.format(json.dumps([vnet_address_prefix])))
+
+    b_params.append('gatewaySubnetName={}'.format(rdgateway_subnet))
+    if rdgateway_subnet_address_prefix is not None:
+        b_params.append('gatewaySubnetAddressPrefix={}'.format(rdgateway_subnet_address_prefix))
+
+    if bastion_subnet_address_prefix is not None:
+        b_params.append('bastionSubnetAddressPrefix={}'.format(bastion_subnet_address_prefix))
+
+    b_params.append('appGatewaySubnetName={}'.format(appgateway_subnet))
+    if appgateway_subnet_address_prefix is not None:
+        b_params.append('appGatewaySubnetAddressPrefix={}'.format(appgateway_subnet_address_prefix))
+
+    # b_params.append('firewallSubnetName={}'.format())
+    # b_params.append('firewallSubnetAddressPrefix={}'.format())
+
+    b_params.append('privateIPAddress={}'.format('' if private_ip_address is None else private_ip_address))
+    # b_params.append('tags={}'.format())
+
+    b_outputs = deploy_arm_template_at_resource_group(cmd, resource_group_name, template_uri=b_template,
+                                                      parameters=[b_params])
+
+    # scale_set_name = get_arm_output(b_outputs, 'scaleSetName')
+    function_name = get_arm_output(b_outputs, 'functionName')
+    public_ip = get_arm_output(b_outputs, 'publicIpAddress')
+
+    gateway_key = get_function_key(cmd, resource_group_name, function_name, 'CreateToken', 'gateway')
+    logger.warning(gateway_key)
+
+    allargs = {
+        'gateway_key': '{}'.format(gateway_key),
+        'public_ip': '{}'.format(public_ip),
+        'resourcePrefix': '{}'.format(resource_prefix),
+        'keyvault_name': '{}'.format(keyvault_name),
+        'storage_connection_string': '{}'.format(storage_connection_string),
+        'storage_artifacts_container': '{}'.format(storage_artifacts_container),
+        'resource_group_name': '{}'.format(resource_group_name),
+        'location': '{}'.format(location),
+        'tags': '{}'.format(tags),
+        'admin_username': '{}'.format(admin_username),
+        'admin_password': '{}'.format(admin_password),
+        'ssl_cert_password': '{}'.format(ssl_cert_password),
+        'instance_count': '{}'.format(instance_count),
+        'token_lifetime': '{}'.format(token_lifetime),
+        'vnet': '{}'.format(vnet),
+        'vnet_type': '{}'.format(vnet_type),
+        'vnet_address_prefix': '{}'.format(vnet_address_prefix),
+        'rdgateway_subnet': '{}'.format(rdgateway_subnet),
+        'rdgateway_subnet_address_prefix': '{}'.format(rdgateway_subnet_address_prefix),
+        'rdgateway_subnet_type': '{}'.format(rdgateway_subnet_type),
+        'appgateway_subnet': '{}'.format(appgateway_subnet),
+        'appgateway_subnet_address_prefix': '{}'.format(appgateway_subnet_address_prefix),
+        'appgateway_subnet_type': '{}'.format(appgateway_subnet_type),
+        'bastion_subnet': '{}'.format(bastion_subnet),
+        'bastion_subnet_address_prefix': '{}'.format(bastion_subnet_address_prefix),
+        'bastion_subnet_type': '{}'.format(bastion_subnet_type),
+        'private_ip_address': '{}'.format(private_ip_address),
+        'public_ip_address': '{}'.format(public_ip_address),
+        'public_ip_address_type': '{}'.format(public_ip_address_type),
+        'version': '{}'.format(version),
+        'prerelease': '{}'.format(prerelease),
+        'index_url': '{}'.format(index_url),
+        # 'scale_set_name': '{}'.format(scale_set_name),
+        'function_name': '{}'.format(function_name),
     }
 
-    return result
+    return allargs
+
+
+# def lab_gateway_test(cmd, resource_group_name, admin_username, admin_password, auth_msi,
+#                      ssl_cert, ssl_cert_password, instance_count=1, token_lifetime=1,
+#                      vnet=None, vnet_address_prefix='10.0.0.0/16', vnet_type=None,
+#                      rdgateway_subnet='RDGatewaySubnet', rdgateway_subnet_address_prefix='10.0.0.0/24',
+#                      appgateway_subnet='AppGatewaySubnet', appgateway_subnet_address_prefix='10.0.2.0/26',
+#                      bastion_subnet='AzureBastionSubnet', bastion_subnet_address_prefix='10.0.1.0/27',
+#                      rdgateway_subnet_type=None, appgateway_subnet_type=None, bastion_subnet_type=None,
+#                      public_ip_address=None, public_ip_address_type=None, private_ip_address='10.0.2.5',
+#                      location=None, tags=None, version=None, prerelease=False, index_url=None):
+
+
+# def lab_gateway_token_show(cmd, resource_group_name, version=None, prerelease=False, index_url=None):
+def lab_gateway_token_show(cmd, resource_group_name):
+    _, _, arm_templates, _ = get_release_index(None, None, None)
+
+    template = get_arm_template(arm_templates, 'deployN')
+
+    outputs = deploy_arm_template_at_resource_group(cmd, resource_group_name, template_uri=template)
+
+    function_name = get_arm_output(outputs, 'functionName')
+
+    return get_function_key(cmd, resource_group_name, function_name, 'CreateToken', 'gateway')

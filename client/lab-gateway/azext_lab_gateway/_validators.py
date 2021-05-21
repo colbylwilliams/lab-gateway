@@ -2,71 +2,234 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License. See License.txt in the project root for license information.
 # --------------------------------------------------------------------------------------------
+# pylint: disable=too-many-statements, too-many-locals, too-many-lines
 
+import os
+import ipaddress
 from re import match
-# from uuid import UUID
-from azure.cli.core.util import CLIError
 from knack.log import get_logger
+from azure.core.exceptions import ResourceNotFoundError
+from azure.cli.core.azclierror import (MutuallyExclusiveArgumentError, InvalidArgumentValueError)
+from azure.cli.core.commands.validators import (get_default_location_from_resource_group,
+                                                validate_tags)
+from azure.cli.core.commands.template_create import (_validate_name_or_id)
+
+from ._github_utils import github_release_version_exists
+from ._client_factory import network_client_factory
 
 logger = get_logger(__name__)
 
-# pylint: disable=unused-argument, protected-access
+
+def none_or_empty(val):
+    return val in ('', '""', "''") or val is None
 
 
-def lab_gateway_deploy_validator(cmd, ns):
-    # if ns.principal_name is not None:
-    #     if ns.principal_password is None:
-    #         raise CLIError(
-    #             'usage error: --principal-password must be have a value if --principal-name is specified')
-    # if ns.principal_password is not None:
-    #     if ns.principal_name is None:
-    #         raise CLIError(
-    #             'usage error: --principal-name must be have a value if --principal-password is specified')
+def get_vnet(cmd, parts):
+    client = network_client_factory(cmd.cli_ctx).virtual_networks
 
+    rg, name = parts['resource_group'], parts['name']
+
+    if not all([rg, name]):
+        return None
+    try:
+        vnet = client.get(rg, name)
+        # for sn in vnet.subnets:
+        #     logger.warning(sn)
+        return vnet
+    except ResourceNotFoundError:
+        return None
+
+
+def get_subnet(cmd, parts):
+
+    client = network_client_factory(cmd.cli_ctx).subnets
+
+    rg, vnet, name = parts['resource_group'], parts['name'], parts['child_name_1']
+
+    if not all([rg, vnet, name]):
+        return None
+    try:
+        subnet = client.get(rg, vnet, name)
+        return subnet
+    except ResourceNotFoundError:
+        return None
+
+
+def process_gateway_create_namespace(cmd, ns):
+    if ns.tags:
+        validate_tags(ns.tags)
+    get_default_location_from_resource_group(cmd, ns)
+    validate_token_lifetime(cmd, ns)
+    validate_vnet(cmd, ns)
+
+
+def validate_vnet(cmd, ns):
+    subnets = ['rdgateway', 'appgateway', 'bastion']
+
+    # Create a resource ID we can check for existence.
+    vnet_parts, _ = _validate_name_or_id(
+        cmd.cli_ctx, ns.resource_group_name, ns.vnet, 'Microsoft.Network/virtualNetworks',
+        parent_value=None, parent_type=None)
+
+    vnet_name = vnet_parts['name']
+
+    default_prefix = hasattr(getattr(ns, 'vnet_address_prefix'), 'is_default')
+
+    vnet = get_vnet(cmd, vnet_parts)
+
+    if vnet is not None:
+        logger.warning('vnet exists: %s', vnet_name)
+        setattr(ns, 'vnet_type', 'existing')
+        if ns.vnet_address_prefix not in ('', '""', "''") or ns.vnet_address_prefix is not None:
+            ns.vnet_address_prefix = None
+            if not default_prefix:
+                logger.warning('Ignoring option --vnet-address-prefix because vnet %s already esists', vnet_name)
+
+    elif none_or_empty(ns.vnet_address_prefix):
+        raise InvalidArgumentValueError(
+            '--vnet-address-prefix must have a valid CIDR prefix when an esisting vnet is not provided')
+
+    else:
+        setattr(ns, 'vnet_type', 'new')
+        logger.warning('vnet does not exists: %s', vnet_name)
+
+    prefixes = vnet.address_space.address_prefixes if vnet is not None else [
+        ns.vnet_address_prefix] if ns.vnet_address_prefix is not None else None
+
+    for subnet in subnets:
+        validate_subnet(cmd, ns, subnet, vnet_parts, prefixes)
+
+    # if vnet address prefix (entered by user or from existing vnet)
+    #   should always have something because new vnet requires prefix and existing vnets have one
+    # for each subnet that has prefix (after subnet val clears them for existing) validate
+
+
+def validate_subnet(cmd, ns, subnet, vnet_parts, vnet_prefixes):
+    property_option = '--{}-subnet'.format(subnet)
+    prefix_property_option = '--{}-subnet-address-prefix'.format(subnet)
+
+    property_name = '{}_subnet'.format(subnet)
+    type_property_name = '{}_subnet_type'.format(subnet)
+    prefix_property_name = '{}_subnet_address_prefix'.format(subnet)
+
+    property_val = getattr(ns, property_name, None)
+
+    if none_or_empty(property_val):
+        raise InvalidArgumentValueError('{} must have a value'.format(property_option))
+
+    vnet_name = vnet_parts['name']
+    vnet_group = vnet_parts['resource_group']
+
+    resource_id_parts, _ = _validate_name_or_id(
+        cmd.cli_ctx, vnet_group, property_val, 'subnets', vnet_name, 'Microsoft.Network/virtualNetworks')
+
+    subnet_name = resource_id_parts['child_name_1']
+
+    if subnet == 'bastion' and subnet_name != 'AzureBastionSubnet':
+        raise InvalidArgumentValueError('{} must be AzureBastionSubnet'.format(property_option))
+
+    if vnet_name is None and resource_id_parts['name'] is not None:
+        # user didn't specify a vnet but provided an resource id (opposed to a name) for the subnet
+        raise InvalidArgumentValueError(
+            '--vnet must have a value that matches the subnet id provided for {}'.format(property_option))
+
+    missmatch_parts = [k for k in ['subscription', 'resource_group', 'name'] if resource_id_parts[k] != vnet_parts[k]]
+    if missmatch_parts:
+        raise InvalidArgumentValueError('{} must in the vnet {}'.format(property_option, vnet_name))
+
+    setattr(ns, property_name, subnet_name)
+
+    prefix_property_val = getattr(ns, prefix_property_name, None)
+    prefix_property_val_default = hasattr(getattr(ns, prefix_property_name), 'is_default')
+
+    existing_subnet = get_subnet(cmd, resource_id_parts)
+
+    if existing_subnet is not None:
+        logger.warning('subnet exists: %s', subnet_name)
+        setattr(ns, type_property_name, 'existing')
+
+        if not none_or_empty(prefix_property_val):
+            setattr(ns, prefix_property_name, None)  # remove/ignore the subet prefix for existing subnet
+            if not prefix_property_val_default:
+                logger.warning('Ignoring option %s because subnet %s already esists',
+                               prefix_property_option, subnet_name)
+
+        if subnet_name == 'rdpgateway':
+            prefix = existing_subnet.address_prefix
+            validate_private_ip(cmd, ns, prefix)
+
+    elif none_or_empty(prefix_property_val):
+        raise InvalidArgumentValueError(
+            '{} must have a valid CIDR prefix when subnet {} does not esist'.format(
+                prefix_property_option, subnet_name))
+
+    else:
+        setattr(ns, type_property_name, 'new')
+        logger.warning('subnet does not exist: %s', subnet_name)
+        if vnet_prefixes is not None:
+            vnet_networks = [ipaddress.ip_network(p) for p in vnet_prefixes]
+            if not all(any(h in n for n in vnet_networks) for h in ipaddress.ip_network(
+                    prefix_property_val).hosts()):
+                raise InvalidArgumentValueError(
+                    '{} {} is not within the vnet address space (prefixed: {})'.format(
+                        prefix_property_option, prefix_property_val, ', '.join(vnet_prefixes)))
+
+
+def validate_token_lifetime(cmd, ns):  # pylint: disable=unused-argument
+    if ns.token_lifetime:
+        lifetime = ns.token_lifetime
+        if isinstance(lifetime, str):
+            try:
+                lifetime = int(lifetime)
+            except ValueError as e:
+                raise InvalidArgumentValueError(
+                    '--token-lifetime must be a number between 1 and 59') from e
+        if not isinstance(lifetime, int) or lifetime < 1 or lifetime > 59:
+            raise InvalidArgumentValueError(
+                '--token-lifetime must be a number between 1 and 59')
+
+        ns.token_lifetime = '00:0{}:00'.format(lifetime) if lifetime < 10 else '00:{}:00'.format(lifetime)
+
+
+def validate_private_ip(cmd, ns, prefix):  # pylint: disable=unused-argument
+    if none_or_empty(ns.private_ip_address) or none_or_empty(prefix):
+        raise InvalidArgumentValueError('--private-ip-address and prefix must both have values')
+
+    private_ip = ipaddress.ip_address(ns.private_ip_address)
+
+    if private_ip not in ipaddress.ip_network(prefix):
+        raise InvalidArgumentValueError(
+            '--private-ip-address {} is not in subnet network {}'.format(ns.private_ip_address, prefix))
+
+    ip_host = ns.private_ip_address.rsplit('.', 1)[0]
+    if int(ip_host) < 5:
+        raise InvalidArgumentValueError(
+            '--private-ip-address {} is invalid, addresses ending in .0 - .4 are reserved'.format(
+                ns.private_ip_address))
+
+
+def index_version_validator(cmd, ns):  # pylint: disable=unused-argument
     if sum(1 for ct in [ns.version, ns.prerelease, ns.index_url] if ct) > 1:
-        raise CLIError(
-            'usage error: can only use one of --index-url | --version/-v | --pre')
+        raise MutuallyExclusiveArgumentError(
+            'Only use one of --index-url | --version/-v | --pre',
+            recommendation='Remove all --index-url, --version/-v, and --pre to use the latest'
+            'stable release, or only specify --pre to use the latest pre-release')
 
     if ns.version:
         ns.version = ns.version.lower()
         if ns.version[:1].isdigit():
             ns.version = 'v' + ns.version
         if not _is_valid_version(ns.version):
-            raise CLIError(
+            raise InvalidArgumentValueError(
                 '--version/-v should be in format v0.0.0 do not include -pre suffix')
 
-        from ._deploy_utils import github_release_version_exists
-
-        if not github_release_version_exists(cmd.cli_ctx, ns.version, 'TeamCloud'):
-            raise CLIError('--version/-v {} does not exist'.format(ns.version))
-
-    if ns.tags:
-        from azure.cli.core.commands.validators import validate_tags
-        validate_tags(ns)
+        if not github_release_version_exists(ns.version):
+            raise InvalidArgumentValueError('--version/-v {} does not exist'.format(ns.version))
 
     if ns.index_url:
         if not _is_valid_url(ns.index_url):
-            raise CLIError(
+            raise InvalidArgumentValueError(
                 '--index-url should be a valid url')
-
-    # if ns.name is not None:
-    #     name_clean = ''
-    #     for n in ns.name.lower():
-    #         if n.isalpha() or n.isdigit() or n == '-':
-    #             name_clean += n
-
-        # ns.name = name_clean
-
-        # if ns.skip_name_validation:
-        #     logger.warning('IMPORTANT: --skip-name-validation prevented unique name validation.')
-        # else:
-        #     from ._client_factory import web_client_factory
-
-        #     web_client = web_client_factory(cmd.cli_ctx)
-        #     availability = web_client.check_name_availability(ns.name, 'Site')
-        #     if not availability.name_available:
-        #         raise CLIError(
-        #             '--name/-n {}'.format(availability.message))
 
 
 def _is_valid_url(url):
@@ -76,3 +239,46 @@ def _is_valid_url(url):
 
 def _is_valid_version(version):
     return match(r'^v[0-9]+\.[0-9]+\.[0-9]+$', version) is not None
+
+
+# ARGUMENT TYPES
+
+
+def certificate_type(string):
+    """ Loads file and outputs contents as base64 encoded string. """
+    try:
+        with open(os.path.expanduser(string), 'rb') as f:
+            cert_data = f.read()
+        return cert_data
+    except (IOError, OSError) as e:
+        raise InvalidArgumentValueError("Unable to load certificate file '{}': {}.".format(string, e.strerror)) from e
+
+
+def msi_type(string):
+    """ Loads msi file and outputs contents. """
+    try:
+        with open(os.path.expanduser(string), 'rb') as f:
+            mis_data = f.read()
+        return mis_data
+    except (IOError, OSError) as e:
+        raise InvalidArgumentValueError("Unable to load msi file '{}': {}.".format(string, e.strerror)) from e
+
+# def validate_subnet_address_prefixes(ns, subnet):
+#     type_property_name = '{}_subnet_type'.format(subnet)
+#     prefix_property_name = '{}_subnet_address_prefix'.format(subnet)
+
+#     type_property = getattr(ns, type_property_name, None)
+
+#     if ns.subnet_name and not ns.subnet_prefix:
+#         if isinstance(ns.vnet_prefixes, str):
+#             ns.vnet_prefixes = [ns.vnet_prefixes]
+#         prefix_components = ns.vnet_prefixes[0].split('/', 1)
+#         address = prefix_components[0]
+#         bit_mask = int(prefix_components[1])
+#         subnet_mask = 24 if bit_mask < 24 else bit_mask
+#         subnet_prefix = '{}/{}'.format(address, subnet_mask)
+
+    # if type_property != 'new':
+    #     validate_parameter_set(ns, required=[],
+    #                            forbidden=[prefix_property_name, 'vnet_address_prefix'],
+    #                            description='existing subnet')

@@ -2,79 +2,28 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License. See License.txt in the project root for license information.
 # --------------------------------------------------------------------------------------------
-# pylint: disable=unused-argument, protected-access, too-many-lines
+# pylint: disable=too-many-statements, too-many-locals
 
-from knack.util import CLIError
+import json
+import requests
+import urllib3
+from re import match
+from time import sleep
 from knack.log import get_logger
+from knack.util import CLIError
 from azure.cli.core.commands import LongRunningOperation
 from azure.cli.core.profiles import ResourceType, get_sdk
-from azure.cli.core.util import (
-    can_launch_browser, open_page_in_browser, in_cloud_console, should_disable_connection_verify)
+from azure.cli.core.util import (should_disable_connection_verify, random_string, sdk_no_wait)
+from azure.cli.core.azclierror import ResourceNotFoundError
 
-
-ERR_TMPL_PRDR_INDEX = 'Unable to get provider index.\n'
-ERR_TMPL_NON_200 = '{}Server returned status code {{}} for {{}}'.format(ERR_TMPL_PRDR_INDEX)
-ERR_TMPL_NO_NETWORK = '{}Please ensure you have network connection. Error detail: {{}}'.format(
-    ERR_TMPL_PRDR_INDEX)
-ERR_TMPL_BAD_JSON = '{}Response body does not contain valid json. Error detail: {{}}'.format(
-    ERR_TMPL_PRDR_INDEX)
-
-ERR_UNABLE_TO_GET_PROVIDERS = 'Unable to get providers from index. Improper index format.'
-ERR_UNABLE_TO_GET_GATEWAY = 'Unable to get gateway from index. Improper index format.'
-ERR_UNABLE_TO_GET_LAB = 'Unable to get LAB from index. Improper index format.'
+from ._client_factory import (resource_client_factory, web_client_factory)
 
 TRIES = 3
 
 logger = get_logger(__name__)
 
 
-def get_github_release(cli_ctx, repo, org='colbylwilliams', version=None, prerelease=False):
-    import requests
-
-    if version and prerelease:
-        raise CLIError(
-            'usage error: can only use one of --version/-v | --pre')
-
-    url = 'https://api.github.com/repos/{}/{}/releases'.format(org, repo)
-
-    if prerelease:
-        version_res = requests.get(url, verify=not should_disable_connection_verify())
-        version_json = version_res.json()
-
-        version_prerelease = next((v for v in version_json if v['prerelease']), None)
-        if not version_prerelease:
-            raise CLIError('--pre no prerelease versions found for {}/{}'.format(org, repo))
-
-        return version_prerelease
-
-    url += ('/tags/{}'.format(version) if version else '/latest')
-
-    version_res = requests.get(url, verify=not should_disable_connection_verify())
-
-    if version_res.status_code == 404:
-        raise CLIError(
-            'No release version exists for {}/{}. '
-            'Specify a specific prerelease version with --version '
-            'or use latest prerelease with --pre'.format(org, repo))
-
-    return version_res.json()
-
-
-def get_github_latest_release_version(cli_ctx, repo, org='colbylwilliams', prerelease=False):
-    version_json = get_github_release(cli_ctx, repo, org, prerelease=prerelease)
-    return version_json['tag_name']
-
-
-def github_release_version_exists(cli_ctx, version, repo, org='colbylwilliams'):
-    import requests
-
-    version_url = 'https://api.github.com/repos/{}/{}/releases/tags/{}'.format(org, repo, version)
-    version_res = requests.get(version_url, verify=not should_disable_connection_verify())
-    return version_res.status_code < 400
-
-
 def get_resource_group_by_name(cli_ctx, resource_group_name):
-    from ._client_factory import resource_client_factory
 
     try:
         resource_client = resource_client_factory(cli_ctx).resource_groups
@@ -87,7 +36,6 @@ def get_resource_group_by_name(cli_ctx, resource_group_name):
 
 
 def create_resource_group_name(cli_ctx, resource_group_name, location, tags=None):
-    from ._client_factory import resource_client_factory
 
     ResourceGroup = get_sdk(cli_ctx, ResourceType.MGMT_RESOURCE_RESOURCES,
                             'ResourceGroup', mod='models')
@@ -97,38 +45,14 @@ def create_resource_group_name(cli_ctx, resource_group_name, location, tags=None
 
 
 def set_appconfig_keys(cmd, appconfig_conn_string, kvs):
-    from azure.cli.command_modules.appconfig.keyvalue import set_key
+    from azure.cli.command_modules.appconfig.keyvalue import set_key   # pylint: disable=import-outside-toplevel
 
     for kv in kvs:
         set_key(cmd, key=kv['key'], value=kv['value'], yes=True,
                 connection_string=appconfig_conn_string)
 
 
-# def create_resource_manager_sp(cmd, app_name):
-#     from azure.cli.command_modules.role.custom import create_service_principal_for_rbac, add_permission, admin_consent
-
-#     sp = create_service_principal_for_rbac(cmd, name='http://TeamCloud.' + (app_name or 'ResourceManager'),
-#                                            years=10, role='Owner')
-#     # Azure Active Directory Graph permissions
-#     add_permission(cmd, identifier=sp['appId'], api='00000002-0000-0000-c000-000000000000',
-#                    api_permissions=['5778995a-e1bf-45b8-affa-663a9f3f4d04=Role',  # Directory.Read.All
-#                                     '824c81eb-e3f8-4ee6-8f6d-de7f50d565b7=Role'])  # Application.ReadWrite.OwnedBy
-#     # Microsoft Graph permissions
-#     add_permission(cmd, identifier=sp['appId'], api='00000003-0000-0000-c000-000000000000',
-#                    api_permissions=['7ab1d382-f21e-4acd-a863-ba3e13f7da61=Role',  # Directory.Read.All
-#                                     '18a4783c-866b-4cc7-a460-3d5e5662c884=Role'])  # Application.ReadWrite.OwnedBy
-
-#     admin_consent(cmd, identifier=sp['appId'])
-
-#     return sp
-
-
 def zip_deploy_app(cli_ctx, resource_group_name, name, zip_url, slot=None, app_instance=None, timeout=None):
-    import requests
-    import urllib3
-
-    from ._client_factory import web_client_factory
-
     web_client = web_client_factory(cli_ctx).web_apps
 
     #  work around until the timeout limits issue for linux is investigated & fixed
@@ -138,8 +62,8 @@ def zip_deploy_app(cli_ctx, resource_group_name, name, zip_url, slot=None, app_i
     try:
         scm_url = _get_scm_url(cli_ctx, resource_group_name, name,
                                slot=slot, app_instance=app_instance)
-    except ValueError:
-        raise CLIError('Failed to fetch scm url for azure app service app')
+    except ValueError as e:
+        raise CLIError('Failed to fetch scm url for azure app service app') from e
 
     zipdeploy_url = scm_url + '/api/zipdeploy?isAsync=true'
     deployment_status_url = scm_url + '/api/deployments/latest'
@@ -162,14 +86,15 @@ def zip_deploy_app(cli_ctx, resource_group_name, name, zip_url, slot=None, app_i
 
     return response
 
+# pylint: disable=inconsistent-return-statements
+
 
 def deploy_arm_template_at_resource_group(cmd, resource_group_name=None, template_file=None,
                                           template_uri=None, parameters=None, no_wait=False):
-    from azure.cli.core.util import random_string, sdk_no_wait
-    from azure.cli.command_modules.resource.custom import _prepare_deployment_properties_unmodified
-    from ._client_factory import resource_client_factory
 
-    properties = _prepare_deployment_properties_unmodified(cmd, template_file=template_file,
+    from azure.cli.command_modules.resource.custom import _prepare_deployment_properties_unmodified   # pylint: disable=import-outside-toplevel
+
+    properties = _prepare_deployment_properties_unmodified(cmd, 'resourceGroup', template_file=template_file,
                                                            template_uri=template_uri, parameters=parameters,
                                                            mode='Incremental')
 
@@ -200,87 +125,16 @@ def deploy_arm_template_at_resource_group(cmd, resource_group_name=None, templat
                 raise err
             try:
                 response = getattr(err, 'response', None)
-                import json
                 message = json.loads(response.text)['error']['details'][0]['message']
                 if '(ServiceUnavailable)' not in message:
                     raise err
             except:
-                raise err
-            import time
-            time.sleep(5)
+                raise err from err
+            sleep(5)
             continue
-
-
-def open_url_in_browser(url):
-    # if we are not in cloud shell and can launch a browser, launch it with the issue draft
-    if can_launch_browser() and not in_cloud_console():
-        open_page_in_browser(url)
-    else:
-        print("There isn't an available browser finish the setup. Please copy and paste the url"
-              " below in a browser to complete the configuration.\n\n{}\n\n".format(url))
-
-
-def get_index(index_url):
-    import requests
-    for try_number in range(TRIES):
-        try:
-            response = requests.get(index_url, verify=(not should_disable_connection_verify()))
-            if response.status_code == 200:
-                return response.json()
-            msg = ERR_TMPL_NON_200.format(response.status_code, index_url)
-            raise CLIError(msg)
-        except (requests.exceptions.ConnectionError, requests.exceptions.HTTPError) as err:
-            msg = ERR_TMPL_NO_NETWORK.format(str(err))
-            raise CLIError(msg)
-        except ValueError as err:
-            # Indicates that url is not redirecting properly to intended index url, we stop retrying after TRIES calls
-            if try_number == TRIES - 1:
-                msg = ERR_TMPL_BAD_JSON.format(str(err))
-                raise CLIError(msg)
-            import time
-            time.sleep(0.5)
-            continue
-
-
-def _get_index_gateway_core(cli_ctx, version=None, prerelease=False, index_url=None):
-    if index_url is None:
-        version = version or get_github_latest_release_version(
-            cli_ctx, 'TeamCloud', prerelease=prerelease)
-        index_url = 'https://github.com/colbylwilliams/lab-gateway/releases/download/{}/index.json'.format(
-            version)
-    index = get_index(index_url=index_url)
-    gateway = index.get('gateway')
-    if gateway is None:
-        gateway.warning(ERR_UNABLE_TO_GET_GATEWAY)
-    lab = index.get('lab')
-    if lab is None:
-        logger.warning(ERR_UNABLE_TO_GET_LAB)
-    return version, gateway, lab
-
-
-def get_index_gateway(cli_ctx, version=None, prerelease=False, index_url=None):
-    version, gateway, _ = _get_index_gateway_core(cli_ctx, version, prerelease, index_url)
-    deploy_url, zip_url, script_url = gateway.get('deployUrl'), gateway.get(
-        'zipUrl'), gateway.get('scriptUrl')
-    if not deploy_url:
-        raise CLIError('No deployUrl found in index')
-    if not zip_url:
-        raise CLIError('No zipUrl found in index')
-    if not script_url:
-        raise CLIError('No scriptUrl found in index')
-    return version, deploy_url, zip_url, script_url
-
-
-def get_index_lab(cli_ctx, version=None, prerelease=False, index_url=None):
-    version, _, lab = _get_index_gateway_core(cli_ctx, version, prerelease, index_url)
-    deploy_url = lab.get('deployUrl')
-    if not deploy_url:
-        raise CLIError('No deployUrl found in index')
-    return version, deploy_url
 
 
 def get_app_name(url):
-    from re import match
     name = ''
     m = match(r'^https?://(?P<name>[a-zA-Z0-9-]+)\.azurewebsites\.net[/a-zA-Z0-9.\:]*$', url)
     try:
@@ -288,7 +142,7 @@ def get_app_name(url):
     except IndexError:
         pass
 
-    if name is None or '':
+    if name is None:
         raise CLIError('Unable to get app name from url.')
 
     return name
@@ -297,7 +151,7 @@ def get_app_name(url):
 def get_app_info(cmd, url):
     name = get_app_name(url)
 
-    from azure.cli.command_modules.resource.custom import list_resources
+    from azure.cli.command_modules.resource.custom import list_resources  # pylint: disable=import-outside-toplevel
 
     resources = list_resources(cmd, name=name, resource_type='microsoft.web/sites')
 
@@ -312,10 +166,10 @@ def get_app_info(cmd, url):
 def get_arm_output(outputs, key, raise_on_error=True):
     try:
         value = outputs[key]['value']
-    except KeyError:
+    except KeyError as e:
         if raise_on_error:
             raise CLIError(
-                "A value for '{}' was not provided in the ARM template outputs".format(key))
+                "A value for '{}' was not provided in the ARM template outputs".format(key)) from e
         value = None
 
     return value
@@ -323,10 +177,6 @@ def get_arm_output(outputs, key, raise_on_error=True):
 
 def _check_zip_deployment_status(cli_ctx, resource_group_name, name, deployment_status_url,
                                  authorization, slot=None, app_instance=None, timeout=None):
-    import json
-    import requests
-    from time import sleep
-
     total_trials = (int(timeout) // 2) if timeout else 450
     num_trials = 0
 
@@ -365,9 +215,9 @@ def _check_zip_deployment_status(cli_ctx, resource_group_name, name, deployment_
 
 
 # TODO: expose new blob suport
-def _configure_default_logging(cli_ctx, resource_group_name, name, slot=None, app_instance=None, level=None,
+def _configure_default_logging(cli_ctx, resource_group_name, name, slot=None, app_instance=None, level=None,  # pylint: disable=unused-argument
                                web_server_logging='filesystem', docker_container_logging='true'):
-    from azure.mgmt.web.models import (FileSystemApplicationLogsConfig, ApplicationLogsConfig,
+    from azure.mgmt.web.models import (FileSystemApplicationLogsConfig, ApplicationLogsConfig,  # pylint: disable=import-outside-toplevel
                                        SiteLogsConfig, HttpLogsConfig, FileSystemHttpLogsConfig)
 
     # logger.warning('Configuring default logging for the app, if not already enabled...')
@@ -397,14 +247,15 @@ def _configure_default_logging(cli_ctx, resource_group_name, name, slot=None, ap
                                      http_logs=http_logs, failed_requests_tracing=None,
                                      detailed_error_messages=None)
 
-    from ._client_factory import web_client_factory
     web_client = web_client_factory(cli_ctx).web_apps
 
     return web_client.update_diagnostic_logs_config(resource_group_name, name, site_log_config)
 
+# pylint: disable=inconsistent-return-statements
 
-def _get_scm_url(cli_ctx, resource_group_name, name, slot=None, app_instance=None):  # pylint: disable=inconsistent-return-statements
-    from azure.mgmt.web.models import HostType
+
+def _get_scm_url(cli_ctx, resource_group_name, name, slot=None, app_instance=None):
+    from azure.mgmt.web.models import HostType  # pylint: disable=import-outside-toplevel
 
     webapp = _get_webapp(cli_ctx, resource_group_name, name, slot=slot, app_instance=app_instance)
     for host in webapp.host_name_ssl_states or []:
@@ -412,10 +263,9 @@ def _get_scm_url(cli_ctx, resource_group_name, name, slot=None, app_instance=Non
             return 'https://{}'.format(host.name)
 
 
-def _get_webapp(cli_ctx, resource_group_name, name, slot=None, app_instance=None):
+def _get_webapp(cli_ctx, resource_group_name, name, slot=None, app_instance=None):  # pylint: disable=unused-argument
     webapp = app_instance
     if not app_instance:
-        from ._client_factory import web_client_factory
         web_client = web_client_factory(cli_ctx).web_apps
         webapp = web_client.get(resource_group_name, name)
     if not webapp:
@@ -429,3 +279,132 @@ def _get_webapp(cli_ctx, resource_group_name, name, slot=None, app_instance=None
         pass
 
     return webapp
+
+
+def get_function_key(cmd, resource_group_name, function_app_name, function_name, key_name):
+    web_client = web_client_factory(cmd.cli_ctx).web_apps
+
+    keys = web_client.list_function_keys(resource_group_name, function_app_name, function_name)
+
+    try:
+        key = keys.additional_properties[key_name]
+        return key
+    except KeyError:
+        KeyInfo = get_sdk(cmd.cli_ctx, ResourceType.MGMT_APPSERVICE, 'KeyInfo', mod='models')
+
+        # pylint: disable=protected-access
+        key_info = KeyInfo(name=key_name, value=None)
+        KeyInfo._attribute_map = {
+            'name': {'key': 'properties.name', 'type': 'str'},
+            'value': {'key': 'properties.value', 'type': 'str'},
+        }
+        new_key = web_client.create_or_update_function_secret(resource_group_name, function_app_name,
+                                                              function_name, key_name, key_info)
+
+        return new_key.value
+
+
+def _asn1_to_iso8601(asn1_date):
+    import dateutil.parser  # pylint: disable=import-outside-toplevel
+    if isinstance(asn1_date, bytes):
+        asn1_date = asn1_date.decode('utf-8')
+    return dateutil.parser.parse(asn1_date)
+
+
+def import_certificate(cmd, vault_name, certificate_name, certificate_data,
+                       disabled=False, password=None, certificate_policy=None, tags=None):
+    import binascii  # pylint: disable=import-outside-toplevel
+    from OpenSSL import crypto  # pylint: disable=import-outside-toplevel
+    CertificateAttributes = cmd.get_models('CertificateAttributes', resource_type=ResourceType.DATA_KEYVAULT)
+    SecretProperties = cmd.get_models('SecretProperties', resource_type=ResourceType.DATA_KEYVAULT)
+    CertificatePolicy = cmd.get_models('CertificatePolicy', resource_type=ResourceType.DATA_KEYVAULT)
+
+    x509 = None
+    content_type = None
+    try:
+        x509 = crypto.load_certificate(crypto.FILETYPE_PEM, certificate_data)
+        # if we get here, we know it was a PEM file
+        content_type = 'application/x-pem-file'
+        try:
+            # for PEM files (including automatic endline conversion for Windows)
+            certificate_data = certificate_data.decode('utf-8').replace('\r\n', '\n')
+        except UnicodeDecodeError:
+            certificate_data = binascii.b2a_base64(certificate_data).decode('utf-8')
+    except (ValueError, crypto.Error):
+        pass
+
+    if not x509:
+        try:
+            if password:
+                x509 = crypto.load_pkcs12(certificate_data, password).get_certificate()
+            else:
+                x509 = crypto.load_pkcs12(certificate_data).get_certificate()
+            content_type = 'application/x-pkcs12'
+            certificate_data = binascii.b2a_base64(certificate_data).decode('utf-8')
+        except crypto.Error as e:
+            raise CLIError(
+                'We could not parse the provided certificate as .pem or .pfx.'
+                'Please verify the certificate with OpenSSL.') from e
+
+    not_before, not_after = None, None
+
+    cn = x509.get_subject().CN
+
+    if x509.get_notBefore():
+        not_before = _asn1_to_iso8601(x509.get_notBefore())
+
+    if x509.get_notAfter():
+        not_after = _asn1_to_iso8601(x509.get_notAfter())
+
+    cert_attrs = CertificateAttributes(
+        enabled=not disabled,
+        not_before=not_before,
+        expires=not_after)
+
+    if certificate_policy:
+        secret_props = certificate_policy.get('secret_properties')
+        if secret_props:
+            secret_props['content_type'] = content_type
+        elif certificate_policy and not secret_props:
+            certificate_policy['secret_properties'] = SecretProperties(content_type=content_type)
+
+        attributes = certificate_policy.get('attributes')
+        if attributes:
+            attributes['created'] = None
+            attributes['updated'] = None
+    else:
+        certificate_policy = CertificatePolicy(
+            secret_properties=SecretProperties(content_type=content_type))
+
+    vault_base_url = 'https://{}{}'.format(vault_name, cmd.cli_ctx.cloud.suffixes.keyvault_dns)
+
+    logger.info("Starting 'keyvault certificate import'")
+    from ._client_factory import keyvault_data_client_factory  # pylint: disable=import-outside-toplevel
+    client = keyvault_data_client_factory(cmd.cli_ctx)
+    result = client.import_certificate(vault_base_url=vault_base_url,
+                                       certificate_name=certificate_name,
+                                       base64_encoded_certificate=certificate_data,
+                                       certificate_attributes=cert_attrs,
+                                       certificate_policy=certificate_policy,
+                                       tags=tags,
+                                       password=password)
+    logger.info("Finished 'keyvault certificate import'")
+
+    if result.sid is None:
+        raise ResourceNotFoundError('Unable to get certificate secret uri from import result')
+
+    secret_url = result.sid.rsplit('/', 1)[0]
+
+    return result, cn, secret_url
+
+
+# def upload_artifacts_to_storage(cmd, connection_string, container, artifacts):
+#     BlobServiceClient, BlobClient = get_sdk(cmd.cli_ctx, ResourceType.DATA_STORAGE_BLOB,
+#                                             '_blob_service_client#BlobServiceClient', '_blob_client#BlobClient')
+
+#     blob_service_client = BlobServiceClient.from_connection_string(connection_string)
+
+#     for name, url in artifacts:
+#         blob_client = blob_service_client.get_blob_client(container, name)
+#         response = requests.get(url)
+#         blob_client.upload_blob(response.content)

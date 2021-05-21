@@ -58,10 +58,9 @@ jobs:
         uses: actions/github-script@v4
         with:
           script: |
+            const options = { recursive: true, force: false, copySourceDirectory: true }
 
             await io.mkdirP('assets/arm')
-            // await io.mkdirP('assets/artifacts')
-            const options = { recursive: true, force: false, copySourceDirectory: true }
             await io.cp('arm/artifacts', 'assets/artifacts', options);
 
       - name: Compile Bicep to ARM
@@ -71,11 +70,12 @@ jobs:
         id: prepare_assets
         run: python ./tools/create-index.py ${{ steps.gitversion.outputs.majorMinorPatch }}
 
-      # - name: Get CLI Version
-      #   id: cli_version
-      #   run: python ./tools/cli-version.py
-      # - name: Build CLI
-      #   run: bash ./tools/build-cli.sh
+      - name: Get CLI Version
+        id: cli_version
+        run: python ./tools/cli-version.py
+
+      - name: Build CLI
+        run: bash ./tools/build-cli.sh
 
       - name: Publish Release Assets
         id: publish_assets
@@ -87,9 +87,9 @@ jobs:
 
             const assets = JSON.parse('${{steps.prepare_assets.outputs.assets}}');
 
-            // const cli_name = 'lab_gateway-${{ steps.cli_version.outputs.version }}-py2.py3-none-any.whl';
+            const cli_name = 'lab_gateway-${{ steps.cli_version.outputs.version }}-py2.py3-none-any.whl';
 
-            // assets.append({'name': cli_name, 'path': 'dist/' + cli_name});
+            assets.append({'name': cli_name, 'path': 'dist/' + cli_name});
 
             const releaseResult = await github.repos.createRelease({
               owner: context.repo.owner,
@@ -109,12 +109,3 @@ jobs:
               name: a.name,
               data: fs.readFileSync(a.path)
             }));
-      # - name: Upload Release Asset - CLI WHL
-      #   uses: actions/upload-release-asset@v1
-      #   env:
-      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      #   with:
-      #     upload_url: ${{ steps.create_release.outputs.upload_url }}
-      #     asset_path: dist/lab_gateway-${{ steps.cli_version.outputs.version }}-py2.py3-none-any.whl
-      #     asset_name: lab_gateway-${{ steps.cli_version.outputs.version }}-py2.py3-none-any.whl
-      #     asset_content_type: application/zip

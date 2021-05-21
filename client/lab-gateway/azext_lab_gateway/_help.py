@@ -15,24 +15,37 @@ type: group
 short-summary: Manage DevTestLabs Remote Desktop Gateways.
 """
 
-helps['lab-gateway deploy'] = """
+helps['lab-gateway create'] = """
 type: command
-short-summary: Deploy a new DevTestLabs Remote Desktop Gateway.
+short-summary: Create a new DevTestLabs Remote Desktop Gateway.
 examples:
-  - name: Deploy a new DevTestLabs Remote Desktop Gateway.
-    text: az lab-gateway deploy -g ResourceGroup -l eastus \
+  - name: Create a new DevTestLabs Remote Desktop Gateway.
+    text: az lab-gateway create -g ResourceGroup -l eastus \
           --admin-username azureuser \
           --admin-password Secure1! \
           --ssl-cert /path/to/SSLCertificate.pfx \
           --ssl-cert-password DontRepeatPasswords1 \
           --auth-msi /path/to/RDGatewayFedAuth.msi
 
-  - name: Deploy a new DevTestLabs Remote Desktop Gateway to a specific pre-release.
-    text: az lab-gateway deploy -g ResourceGroup -l eastus \
+  - name: Create a new DevTestLabs Remote Desktop Gateway to a specific pre-release.
+    text: az lab-gateway create -g ResourceGroup -l eastus \
         --admin-username azureuser \
         --admin-password Secure1! \
         --ssl-cert /path/to/SSLCertificate.pfx \
         --ssl-cert-password DontRepeatPasswords1 \
         --auth-msi /path/to/RDGatewayFedAuth.msi \
         --version v0.1.1
+"""
+
+helps['lab-gateway token'] = """
+type: group
+short-summary: Manage DevTestLabs Remote Desktop Gateways tokens.
+"""
+
+helps['lab-gateway token show'] = """
+type: command
+short-summary: Get the Gateway token needed configure a Lab.
+examples:
+  - name: Get the Gateway token.
+    text: az lab-gateway token show -g ResourceGroup
 """

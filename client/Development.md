@@ -57,5 +57,5 @@ This document explains how to get a local development environment set up.
 6. Complete setup by running:
 
     ```sh
-    azdev setup -r /path/to/lab-gateway
+    azdev setup -r /path/to/lab-gateway -e lab-gateway
     ```
