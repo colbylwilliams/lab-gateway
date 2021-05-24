@@ -1,4 +1,4 @@
-param resourcePrefix string = 'rdg${uniqueString(resourceGroup().id)}'
+param resourcePrefix string
 
 param subnet string
 param apiHost string

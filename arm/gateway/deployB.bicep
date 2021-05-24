@@ -1,6 +1,6 @@
 param utcValue string = utcNow('u')
 
-param resourcePrefix string = 'rdg${uniqueString(resourceGroup().id)}'
+param resourcePrefix string
 
 @description('Admin username on all VMs.')
 param adminUsername string

@@ -1,4 +1,4 @@
-param resourcePrefix string = 'rdg${uniqueString(resourceGroup().id)}'
+param resourcePrefix string
 
 param utcValue string = utcNow('u')
 
@@ -48,8 +48,6 @@ param appGatewaySubnetAddressPrefix string // = '10.0.2.0/26' // MUST be at leas
 param privateIPAddress string //= '' // = '10.0.2.5' // MUST be within appGatewaySubnetAddressPrefix and cannot end in .0 - .4 (reserved)
 
 // ====================
-
-// var resourcePrefix = 'rdg${uniqueString(resourceGroup().id)}'
 
 var keyVaultName = '${resourcePrefix}-kv'
 

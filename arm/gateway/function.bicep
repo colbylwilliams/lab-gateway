@@ -1,4 +1,4 @@
-param resourcePrefix string = 'rdg${uniqueString(resourceGroup().id)}'
+param resourcePrefix string
 
 param keyVaultName string
 param tokenLifetime string = '00:01:00'

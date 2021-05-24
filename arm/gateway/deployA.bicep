@@ -1,4 +1,4 @@
-param resourcePrefix string = 'rdg${uniqueString(resourceGroup().id)}'
+param resourcePrefix string
 
 param userId string
 param tenantId string
@@ -39,7 +39,6 @@ module storage 'storage.bicep' = {
   }
 }
 
-output resourcePrefix string = resourcePrefix
 output keyvaultName string = kv.outputs.name
 output storageConnectionString string = storage.outputs.connectionString
 output artifactsContainerName string = storage.outputs.artifactsContainerName

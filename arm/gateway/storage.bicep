@@ -1,4 +1,4 @@
-param accountName string = 'rdg${uniqueString(resourceGroup().id)}'
+param accountName string
 
 param tags object = {}
 
