@@ -8,14 +8,22 @@ import os
 import ipaddress
 from re import match
 from knack.log import get_logger
+from msrestazure.tools import resource_id
 from azure.core.exceptions import ResourceNotFoundError
 from azure.cli.core.azclierror import (MutuallyExclusiveArgumentError, InvalidArgumentValueError)
+from azure.cli.core.commands.client_factory import get_subscription_id
 from azure.cli.core.commands.validators import (get_default_location_from_resource_group,
                                                 validate_tags)
 from azure.cli.core.commands.template_create import (_validate_name_or_id)
+from azure.cli.core.extension import get_extension
+from azure.cli.core.util import hash_string
 
-from ._github_utils import github_release_version_exists
-from ._client_factory import network_client_factory
+from ._github_utils import (github_release_version_exists, get_github_latest_release_version)
+from ._deploy_utils import (get_resource_group_tags)
+from ._client_factory import (network_client_factory, labs_client_factory)
+from ._constants import (tag_key, get_resource_name, get_function_name)
+from ._utils import get_tag
+
 
 logger = get_logger(__name__)
 
@@ -26,26 +34,19 @@ def none_or_empty(val):
 
 def get_vnet(cmd, parts):
     client = network_client_factory(cmd.cli_ctx).virtual_networks
-
     rg, name = parts['resource_group'], parts['name']
-
     if not all([rg, name]):
         return None
     try:
         vnet = client.get(rg, name)
-        # for sn in vnet.subnets:
-        #     logger.warning(sn)
         return vnet
     except ResourceNotFoundError:
         return None
 
 
 def get_subnet(cmd, parts):
-
     client = network_client_factory(cmd.cli_ctx).subnets
-
     rg, vnet, name = parts['resource_group'], parts['name'], parts['child_name_1']
-
     if not all([rg, vnet, name]):
         return None
     try:
@@ -55,12 +56,120 @@ def get_subnet(cmd, parts):
         return None
 
 
+def get_lab(cmd, parts):
+    client = labs_client_factory(cmd.cli_ctx).labs
+    rg, name = parts['resource_group'], parts['name']
+    if not all([rg, name]):
+        return None
+    try:
+        lab = client.get(rg, name)
+        return lab
+    except ResourceNotFoundError:
+        return None
+
+
+def get_lab_vnets(cmd, parts):
+    client = labs_client_factory(cmd.cli_ctx).virtual_networks
+    rg, name = parts['resource_group'], parts['name']
+    if not all([rg, name]):
+        return None
+    try:
+        lab = client.list(rg, name)
+        return lab
+    except ResourceNotFoundError:
+        return None
+
+
 def process_gateway_create_namespace(cmd, ns):
-    if ns.tags:
-        validate_tags(ns.tags)
+    validate_resource_prefix(cmd, ns)
+    index_version_validator(cmd, ns)
+    validate_gateway_tags(ns)
     get_default_location_from_resource_group(cmd, ns)
     validate_token_lifetime(cmd, ns)
     validate_vnet(cmd, ns)
+
+
+def process_gateway_connect_namespace(cmd, ns):
+    validate_resource_prefix(cmd, ns)
+    index_version_validator(cmd, ns)
+    tags = get_resource_group_tags(cmd, ns.resource_group_name)
+    validate_function_name(ns, tags)
+    validate_gateway_hostname(ns, tags)
+
+    lab_parts, _ = _validate_name_or_id(
+        cmd.cli_ctx, ns.lab_resource_group_name, ns.lab, 'Microsoft.DevTestLab/labs',
+        parent_value=None, parent_type=None)
+
+    lab = get_lab(cmd, lab_parts)
+    if lab:
+        ns.lab = lab_parts['name']
+
+    # vnets = get_lab_vnets(cmd, lab_parts)
+    # ns.lab_vnets = [v.id for v in vnets]
+    # ns.lab_keyvault = lab.vault_name
+
+
+def process_gateway_show_namespace(cmd, ns):
+    validate_resource_prefix(cmd, ns)
+
+
+def process_gateway_token_namespace(cmd, ns):
+    validate_resource_prefix(cmd, ns)
+    tags = get_resource_group_tags(cmd, ns.resource_group_name)
+    validate_function_name(ns, tags)
+
+
+def validate_function_name(ns, tags):
+    function_name = get_tag(tags, 'function')
+
+    if not function_name:
+        prefix = get_tag(tags, 'prefix')
+        function_name = get_function_name(prefix) if prefix else get_function_name(ns.resource_prefix)
+
+    if not function_name:
+        raise ResourceNotFoundError('Unable to resolve function app name from resource group')
+
+    ns.function_name = function_name
+
+
+def validate_gateway_hostname(ns, tags):
+    hostname = get_tag(tags, 'hostname')
+
+    if not hostname:
+        raise ResourceNotFoundError('Unable to resolve gateway hostname from resource group')
+
+    # TODO: resolve from gateway
+
+    ns.gateway_hostname = hostname
+
+
+def validate_resource_prefix(cmd, ns):
+    sub = get_subscription_id(cmd.cli_ctx)
+    resource_group_name_upper = ns.resource_group_name.upper()
+    group_id = resource_id(subscription=sub, resource_group=resource_group_name_upper)
+    unique_string = hash_string(group_id, length=12, force_lower=True)
+    prefix = get_resource_name(unique_string)
+    ns.resource_prefix = prefix
+
+
+def validate_gateway_tags(ns):
+    if ns.tags:
+        validate_tags(ns)
+
+    tags_dict = {} if ns.tags is None else ns.tags
+
+    if ns.version:
+        tags_dict.update({tag_key('version'): ns.version})
+    if ns.prerelease:
+        tags_dict.update({tag_key('prerelease'): ns.prerelease})
+
+    ext = get_extension('lab-gateway')
+    cur_version = ext.get_version()
+    cur_version_str = 'v{}'.format(cur_version)
+
+    tags_dict.update({tag_key('cli'): cur_version_str})
+
+    ns.tags = tags_dict
 
 
 def validate_vnet(cmd, ns):
@@ -226,10 +335,15 @@ def index_version_validator(cmd, ns):  # pylint: disable=unused-argument
         if not github_release_version_exists(ns.version):
             raise InvalidArgumentValueError('--version/-v {} does not exist'.format(ns.version))
 
-    if ns.index_url:
+    elif ns.index_url:
         if not _is_valid_url(ns.index_url):
             raise InvalidArgumentValueError(
                 '--index-url should be a valid url')
+
+    else:
+        ns.version = ns.version or get_github_latest_release_version(prerelease=ns.prerelease)
+        ns.index_url = 'https://github.com/colbylwilliams/lab-gateway/releases/download/{}/index.json'.format(
+            ns.version)
 
 
 def _is_valid_url(url):

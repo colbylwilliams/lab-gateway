@@ -37,6 +37,24 @@ examples:
         --version v0.1.1
 """
 
+helps['lab-gateway show'] = """
+type: command
+short-summary: Get details for a DevTestLabs Remote Desktop Gateway.
+examples:
+  - name: Get details for a DevTestLabs Remote Desktop Gateway.
+    text: az lab-gateway show -g ResourceGroup
+"""
+
+helps['lab-gateway connect'] = """
+type: command
+short-summary: Connect a DevTestLabs Remote Desktop Gateway to a Lab.
+examples:
+  - name: Connect a DevTestLabs Remote Desktop Gateway to a Lab.
+    text: az lab-gateway connect -g GatewayResourceGroup \
+          --lab-group LabResourceGroup \
+          --lab MyLab
+"""
+
 helps['lab-gateway token'] = """
 type: group
 short-summary: Manage DevTestLabs Remote Desktop Gateways tokens.

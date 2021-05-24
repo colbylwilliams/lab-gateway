@@ -3,6 +3,10 @@
 Release History
 ===============
 
+0.2.1
+++++++
+* Preview release
+
 0.2.0
 ++++++
 * Preview release

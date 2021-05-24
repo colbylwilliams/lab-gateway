@@ -38,6 +38,11 @@ def keyvault_client_factory(cli_ctx, **_):
     return get_mgmt_service_client(cli_ctx, ResourceType.MGMT_KEYVAULT)
 
 
+def labs_client_factory(cli_ctx, **_):
+    from azure.mgmt.devtestlabs import DevTestLabsClient
+    return get_mgmt_service_client(cli_ctx, DevTestLabsClient)
+
+
 def keyvault_data_client_factory(cli_ctx, **_):
     from azure.cli.core._profile import Profile
     version = str(get_api_version(cli_ctx, ResourceType.DATA_KEYVAULT))

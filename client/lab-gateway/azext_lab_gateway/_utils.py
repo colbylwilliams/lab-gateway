@@ -11,10 +11,16 @@ from azure.graphrbac.models import GraphErrorException
 from azure.cli.core._profile import Profile
 from azure.cli.core.util import (can_launch_browser, open_page_in_browser, in_cloud_console)
 from azure.cli.core.azclierror import AzureResponseError
+from ._constants import tag_key
 
 TRIES = 3
 
 logger = get_logger(__name__)
+
+
+def get_tag(tags, key):
+    val = tags.get(tag_key(key), None)
+    return val
 
 
 def open_url_in_browser(url):

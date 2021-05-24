@@ -11,7 +11,9 @@ from re import match
 from time import sleep
 from knack.log import get_logger
 from knack.util import CLIError
+from msrestazure.tools import resource_id
 from azure.cli.core.commands import LongRunningOperation
+from azure.cli.core.commands.client_factory import get_subscription_id
 from azure.cli.core.profiles import ResourceType, get_sdk
 from azure.cli.core.util import (should_disable_connection_verify, random_string, sdk_no_wait)
 from azure.cli.core.azclierror import ResourceNotFoundError
@@ -119,7 +121,7 @@ def deploy_arm_template_at_resource_group(cmd, resource_group_name=None, templat
                                           finish_msg='Finished deploying ARM template')(deploy_poll)
 
             props = getattr(result, 'properties', None)
-            return getattr(props, 'outputs', None)
+            return result, getattr(props, 'outputs', None)
         except CLIError as err:
             if try_number == TRIES - 1:
                 raise err
@@ -408,3 +410,27 @@ def import_certificate(cmd, vault_name, certificate_name, certificate_data,
 #         blob_client = blob_service_client.get_blob_client(container, name)
 #         response = requests.get(url)
 #         blob_client.upload_blob(response.content)
+
+def tag_resource_group(cmd, resource_group_name, tags):
+    Tags = cmd.get_models('Tags', resource_type=ResourceType.MGMT_RESOURCE_RESOURCES)
+
+    sub = get_subscription_id(cmd.cli_ctx)
+    scope = resource_id(subscription=sub, resource_group=resource_group_name)
+    properties = Tags(tags=tags)
+
+    client = resource_client_factory(cmd.cli_ctx).tags
+
+    result = client.update_at_scope(scope, operation='Merge', properties=properties)
+
+    return result
+
+
+def get_resource_group_tags(cmd, resource_group_name):
+    sub = get_subscription_id(cmd.cli_ctx)
+    scope = resource_id(subscription=sub, resource_group=resource_group_name)
+
+    client = resource_client_factory(cmd.cli_ctx).tags
+
+    result = client.get_at_scope(scope)
+
+    return result.properties.tags
