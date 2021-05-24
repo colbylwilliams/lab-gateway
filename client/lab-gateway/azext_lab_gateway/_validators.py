@@ -103,6 +103,8 @@ def process_gateway_connect_namespace(cmd, ns):
     lab = get_lab(cmd, lab_parts)
     if lab:
         ns.lab = lab_parts['name']
+    else:
+        raise ResourceNotFoundError('Lab {} not found'.format(ns.lab))
 
     # vnets = get_lab_vnets(cmd, lab_parts)
     # ns.lab_vnets = [v.id for v in vnets]
@@ -187,7 +189,7 @@ def validate_vnet(cmd, ns):
     vnet = get_vnet(cmd, vnet_parts)
 
     if vnet is not None:
-        logger.warning('vnet exists: %s', vnet_name)
+        logger.info('vnet exists: %s', vnet_name)
         setattr(ns, 'vnet_type', 'existing')
         if ns.vnet_address_prefix not in ('', '""', "''") or ns.vnet_address_prefix is not None:
             ns.vnet_address_prefix = None
@@ -200,7 +202,7 @@ def validate_vnet(cmd, ns):
 
     else:
         setattr(ns, 'vnet_type', 'new')
-        logger.warning('vnet does not exists: %s', vnet_name)
+        logger.info('vnet does not exists: %s', vnet_name)
 
     prefixes = vnet.address_space.address_prefixes if vnet is not None else [
         ns.vnet_address_prefix] if ns.vnet_address_prefix is not None else None
@@ -254,7 +256,7 @@ def validate_subnet(cmd, ns, subnet, vnet_parts, vnet_prefixes):
     existing_subnet = get_subnet(cmd, resource_id_parts)
 
     if existing_subnet is not None:
-        logger.warning('subnet exists: %s', subnet_name)
+        logger.info('subnet exists: %s', subnet_name)
         setattr(ns, type_property_name, 'existing')
 
         if not none_or_empty(prefix_property_val):
@@ -274,7 +276,7 @@ def validate_subnet(cmd, ns, subnet, vnet_parts, vnet_prefixes):
 
     else:
         setattr(ns, type_property_name, 'new')
-        logger.warning('subnet does not exist: %s', subnet_name)
+        logger.info('subnet does not exist: %s', subnet_name)
         if vnet_prefixes is not None:
             vnet_networks = [ipaddress.ip_network(p) for p in vnet_prefixes]
             if not all(any(h in n for n in vnet_networks) for h in ipaddress.ip_network(

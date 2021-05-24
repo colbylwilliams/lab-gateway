@@ -45,54 +45,43 @@ def load_arguments(self, _):
         c.argument('tags', tags_type)
 
         c.argument('admin_username', options_list=['--admin-username', '-u'],
-                   help='Username for the VM. Default value is current username of OS. If the default value is system reserved, then default value will be set to azureuser. Please refer to https://docs.microsoft.com/en-us/rest/api/compute/virtualmachines/createorupdate#osprofile to get a full list of reserved values.')
+                   help='Username for the gateway VMs. Value must not be system reserved. Please refer to https://docs.microsoft.com/en-us/rest/api/compute/virtualmachines/createorupdate#osprofile to get a full list of reserved values.')
         c.argument('admin_password', options_list=['--admin-password', '-p'],
-                   help="Password for the VM if authentication type is 'Password'.")
+                   help="Password for the gateway VMs.")
 
-        c.argument('auth_msi', help='Path to RDGatewayFedAuth.msi.', completer=FilesCompleter(), type=msi_type)
+        c.argument('auth_msi', help='Path to RDGatewayFedAuth.msi file. RDGatewayFedAuth comes with System Center Virtual Machine Manager (VMM) images. With an MSDN account, the latest VMM .iso download can be found at https://my.visualstudio.com/Downloads?q=System%20Center%20Virtual%20Machine%20Manager%202019&pgroup=. Download the .iso and extract RDGatewayFedAuth.msi from: System Center Virtual Machine Manager > amd64 > Setup > msi > RDGatewayFedAuth.msi', completer=FilesCompleter(), type=msi_type)
 
-        c.argument('ssl_cert', help='Path to the SSL Certificate .pfx or .p12 file.',
+        c.argument('ssl_cert', help='Path to the SSL Certificate .pfx or .p12 file. This must match the FQDN of the gateway, wildcard certs will not work.',
                    completer=FilesCompleter(), type=certificate_type)
         c.argument('ssl_cert_password', help='Password used to export the SSL certificate (for installation).')
 
-        c.argument('instance_count', help='Number of VMs in the scale set.', type=int, default=1)
-        c.argument('token_lifetime', help='TTL of a generated token embedded in RDP files in minutes.', default=1)
+        c.argument('instance_count', help='Number of gateway VMs in the scale set.', type=int, default=1)
+        c.argument('token_lifetime', help='TTL of a token embedded in RDP files in minutes.', default=1)
 
-        # c.argument('signing_cert', help='Self-signed certificate .pfx or .p12 file. If this option is ommitted, a new certificate will be generated during deployment using KeyVault.')
-        # c.argument('signing_cert_password', help='Password used to export the SSL certificate (for installation).')
-        # c.argument('public_ip', help='Pub')
-
-        # c.argument('vnet', vnet_name_type)
-        vnet_help = get_folded_parameter_help_string('virtual network', allow_none=True, allow_new=False, default_none=True, allow_cross_sub=False)
+        vnet_help = 'Name or ID of an existing vnet. Will create resource if it does not exist. If you want to use an existing vnet in other resource group, please provide the ID instead of the name of the vnet.'
         c.argument('vnet', help=vnet_help, completer=get_resource_name_completion_list('Microsoft.Network/virtualNetworks'), arg_group='Network')
         c.argument('vnet_address_prefix', arg_group='Network', help='The CIDR prefix to use when creating the vnet')
 
-        c.argument('rdgateway_subnet', completer=subnet_completion_list, arg_group='Network',
-                   help=get_folded_parameter_help_string('rdgateway_subnet', other_required_option='--vnet', allow_new=True, allow_cross_sub=False))
+        subnet_help = 'Name or ID of an existing subnet in vnet provided for --vnet. Will create a new subnet if a subnet with the name does not exist.'
+        c.argument('rdgateway_subnet', completer=subnet_completion_list, arg_group='Network', help=subnet_help)
         c.argument('rdgateway_subnet_address_prefix', arg_group='Network', help='The CIDR prefix to use when creating the RDGateway subnet')
 
-        c.argument('appgateway_subnet', completer=subnet_completion_list, arg_group='Network',
-                   help=get_folded_parameter_help_string('appgateway_subnet', other_required_option='--vnet', allow_new=True, allow_cross_sub=False))
+        c.argument('appgateway_subnet', completer=subnet_completion_list, arg_group='Network', help=subnet_help)
         c.argument('appgateway_subnet_address_prefix', arg_group='Network', help='The CIDR prefix to use when creating the App Gateway subnet')
 
-        c.argument('bastion_subnet', completer=subnet_completion_list, arg_group='Network',
-                   help=get_folded_parameter_help_string('bastion_subnet', other_required_option='--vnet', allow_new=True, allow_cross_sub=False))
+        c.argument('bastion_subnet', completer=subnet_completion_list, arg_group='Network', help=subnet_help)
         c.argument('bastion_subnet_address_prefix', arg_group='Network', help='The CIDR prefix to use when creating the Bastion Host subnet')
 
         c.argument('private_ip_address', help='Private IP Address. Must be within AppGatewaySubnet address prefix and cannot end in .0 - .4 (reserved)')
-        public_ip_help = get_folded_parameter_help_string('public IP address', allow_none=True, allow_new=True, default_none=True, allow_cross_sub=False)
-        c.argument('public_ip_address', help=public_ip_help, completer=get_resource_name_completion_list('Microsoft.Network/publicIPAddresses'), arg_group='Network')
-        # subnet_help = get_folded_parameter_help_string('subnet', other_required_option='--vnet-name', allow_new=True)
-        # c.argument('subnet', help=subnet_help, completer=subnet_completion_list, arg_group='Network')
 
-        # c.argument('skip_app_deployment', action='store_true', help="Only create Azure resources, skip deploying the TeamCloud API and Orchestrator apps.")
-        # c.argument('skip_name_validation', action='store_true', help="Skip name validaiton. Useful when attempting to redeploy a partial or failed deployment.")
+        public_ip_help = 'Name or ID of an existing Public IP Address resource. Will create new resource if none is specified.'
+        c.argument('public_ip_address', help=public_ip_help, completer=get_resource_name_completion_list('Microsoft.Network/publicIPAddresses'), arg_group='Network')
+
         c.ignore('vnet_type')
         c.ignore('rdgateway_subnet_type')
         c.ignore('appgateway_subnet_type')
         c.ignore('bastion_subnet_type')
         c.ignore('public_ip_address_type')
-    # with self.argument_context('lab-gateway ssl update')
 
     with self.argument_context('lab-gateway connect') as c:
         c.argument('lab', help='The Lab',
