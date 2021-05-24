@@ -1,5 +1,4 @@
 param labName string
-param keyvault string
 param gatewayHostname string
 
 @secure()
@@ -9,8 +8,6 @@ param gatewayTokenName string = 'gateway'
 
 param tags object = {}
 
-var vaultName = last(split(keyvault, '/'))
-
 resource lab 'Microsoft.DevTestLab/labs@2018-09-15' = {
   name: labName
   location: resourceGroup().location
@@ -18,22 +15,32 @@ resource lab 'Microsoft.DevTestLab/labs@2018-09-15' = {
     extendedProperties: {
       RdpGateway: gatewayHostname
       RdpConnectionType: '7'
-      RdgTokenSecretName: 'gateway'
+      RdgTokenSecretName: gatewayTokenName
     }
   }
   tags: tags
 }
 
-resource token 'Microsoft.KeyVault/vaults/secrets@2019-09-01' = {
-  name: '${vaultName}/${gatewayTokenName}'
-  properties: {
+module secret 'labSecret.bicep' = {
+  name: 'gatewaySecret'
+  params: {
+    name: gatewayTokenName
+    vaultName: last(split(lab.properties.vaultName, '/'))
     value: gatewayToken
-    attributes: {
-      enabled: true
-    }
+    tags: tags
   }
-  tags: tags
-  dependsOn: [
-    lab
-  ]
 }
+
+// resource token 'Microsoft.KeyVault/vaults/secrets@2019-09-01' = {
+//   name: '${vaultName}/${gatewayTokenName}'
+//   properties: {
+//     value: gatewayToken
+//     attributes: {
+//       enabled: true
+//     }
+//   }
+//   tags: tags
+//   dependsOn: [
+//     lab
+//   ]
+// }
