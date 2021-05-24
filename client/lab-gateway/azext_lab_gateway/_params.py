@@ -12,8 +12,6 @@ from argcomplete.completers import FilesCompleter
 from azure.cli.core.commands.parameters import (get_location_type, tags_type,
                                                 get_resource_group_completion_list,)
 
-from azure.cli.core.commands.template_create import (get_folded_parameter_help_string)
-
 from ._validators import (certificate_type, msi_type)
 from ._completers import (subnet_completion_list, get_resource_name_completion_list,
                           get_lab_name_completion_list)
