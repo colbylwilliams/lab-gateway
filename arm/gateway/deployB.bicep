@@ -173,6 +173,7 @@ module privateEndpointDeployment 'privateEndpoint.bicep' = if (tokenPrivateEndpo
   }
 }
 
+output vnetId string = gwVnet.outputs.id
 output scaleSetName string = vmss.outputs.name
 output functionName string = functionApp.outputs.name
 output publicIpAddress string = gw.outputs.ip
