@@ -10,20 +10,21 @@ arm_dir = '{}/{}'.format(Path.cwd(), 'assets/arm')
 
 with os.scandir(Path.cwd() / 'arm/gateway') as s:
     for f in s:
-        if f.name.startswith('deploy') and f.name.endswith('.bicep') and f.is_file():
-            name = f.name.rsplit('.bicep', 1)[0]
-            arm_name = '{}.json'.format(name)
-            templates.append({
-                'name': name,
-                'bicep': {
-                    'name': f.name,
-                    'path': f.path,
-                },
-                'arm': {
-                    'name': arm_name,
-                    'path': '{}/{}'.format(arm_dir, arm_name)
-                }
-            })
+        if f.is_file() and f.name.endswith('.bicep'):
+            if f.name.startswith('deploy') or f.name.startswith('connect'):
+                name = f.name.rsplit('.bicep', 1)[0]
+                arm_name = '{}.json'.format(name)
+                templates.append({
+                    'name': name,
+                    'bicep': {
+                        'name': f.name,
+                        'path': f.path,
+                    },
+                    'arm': {
+                        'name': arm_name,
+                        'path': '{}/{}'.format(arm_dir, arm_name)
+                    }
+                })
 
 for t in templates:
     print('Compiling template: {}'.format(t['name']))
