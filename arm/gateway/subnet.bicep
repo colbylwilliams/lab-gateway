@@ -20,4 +20,4 @@ resource subnet_existing 'Microsoft.Network/virtualNetworks/subnets@2020-06-01' 
   name: '${vnetName}/${name}'
 }
 
-output id string = use_existing ? subnet_existing.id : subnet.id
+// output id string = use_existing ? subnet_existing.id : subnet.id

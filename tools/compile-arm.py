@@ -5,8 +5,9 @@ from pathlib import Path
 
 templates = []
 
-arm_dir = '{}/{}'.format(Path.cwd(), 'assets/arm')
-# arm_dir = '{}/{}'.format(Path.cwd(), 'tools/tmp/arm')
+ci = os.environ.get('CI', False)
+
+arm_dir = '{}/{}'.format(Path.cwd(), 'assets/arm' if ci else 'tools/tmp/arm')
 
 with os.scandir(Path.cwd() / 'arm/gateway') as s:
     for f in s:

@@ -281,7 +281,7 @@ def validate_subnet(cmd, ns, subnet, vnet_parts, vnet_prefixes):
                 logger.warning('Ignoring option %s because subnet %s already esists',
                                prefix_property_option, subnet_name)
 
-        if subnet_name == 'rdpgateway':
+        if subnet == 'rdgateway':
             prefix = existing_subnet.address_prefix
             validate_private_ip(cmd, ns, prefix)
 
@@ -300,6 +300,9 @@ def validate_subnet(cmd, ns, subnet, vnet_parts, vnet_prefixes):
                 raise InvalidArgumentValueError(
                     '{} {} is not within the vnet address space (prefixed: {})'.format(
                         prefix_property_option, prefix_property_val, ', '.join(vnet_prefixes)))
+
+        if subnet == 'rdgateway':
+            validate_private_ip(cmd, ns, prefix_property_val)
 
 
 def validate_token_lifetime(cmd, ns):  # pylint: disable=unused-argument
@@ -367,6 +370,8 @@ def validate_public_ip(cmd, ns):
 
 
 def validate_private_ip(cmd, ns, prefix):  # pylint: disable=unused-argument
+    logger.warning('validating private_ip_address for prefix: %s', prefix)
+    # logger.warning('validating private_ip_address')
     if none_or_empty(ns.private_ip_address) or none_or_empty(prefix):
         raise InvalidArgumentValueError('--private-ip-address and prefix must both have values')
 

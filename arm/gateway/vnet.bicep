@@ -68,7 +68,7 @@ module gateway_subnet 'subnet.bicep' = if (!empty(vnet)) {
   name: 'gatewaySubnet'
   scope: rg_vnet_existing
   params: {
-    vnet: empty(vnet) ? vnet_new.id : vnet
+    vnet: vnet
     name: gatewaySubnetName
     addressPrefix: gatewaySubnetAddressPrefix
   }
@@ -79,12 +79,12 @@ module appgateway_subnet 'subnet.bicep' = if (!empty(vnet)) {
   name: 'appGatewaySubnet'
   scope: rg_vnet_existing
   params: {
-    vnet: empty(vnet) ? vnet_new.id : vnet
+    vnet: vnet
     name: appGatewaySubnetName
     addressPrefix: appGatewaySubnetAddressPrefix
   }
   dependsOn: [
-    gateway_subnet
+    // gateway_subnet
   ]
 }
 
@@ -92,18 +92,18 @@ module bastion_subnet 'subnet.bicep' = if (!empty(vnet)) {
   name: 'bastionSubnet'
   scope: rg_vnet_existing
   params: {
-    vnet: empty(vnet) ? vnet_new.id : vnet
+    vnet: vnet
     name: bastionSubnetName
     addressPrefix: bastionSubnetAddressPrefix
   }
   dependsOn: [
-    gateway_subnet
-    appgateway_subnet
+    // gateway_subnet
+    // appgateway_subnet
   ]
 }
 
 output id string = vnetId
 output name string = vnetName
-output gatewaySubnet string = empty(vnet) ? resourceId('Microsoft.Network/virtualNetworks/subnets', vnet_new.name, gatewaySubnetName) : gateway_subnet.outputs.id
-output bastionSubnet string = empty(vnet) ? resourceId('Microsoft.Network/virtualNetworks/subnets', vnet_new.name, bastionSubnetName) : bastion_subnet.outputs.id
-output appGatewaySubnet string = empty(vnet) ? resourceId('Microsoft.Network/virtualNetworks/subnets', vnet_new.name, appGatewaySubnetName) : appgateway_subnet.outputs.id
+output gatewaySubnet string = empty(vnet) ? resourceId('Microsoft.Network/virtualNetworks/subnets', vnetName, gatewaySubnetName) : resourceId(vnetRg, 'Microsoft.Network/virtualNetworks/subnets', vnetName, gatewaySubnetName)
+output bastionSubnet string = empty(vnet) ? resourceId('Microsoft.Network/virtualNetworks/subnets', vnetName, bastionSubnetName) : resourceId(vnetRg, 'Microsoft.Network/virtualNetworks/subnets', vnetName, bastionSubnetName)
+output appGatewaySubnet string = empty(vnet) ? resourceId('Microsoft.Network/virtualNetworks/subnets', vnetName, appGatewaySubnetName) : resourceId(vnetRg, 'Microsoft.Network/virtualNetworks/subnets', vnetName, appGatewaySubnetName)
