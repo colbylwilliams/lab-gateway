@@ -1,4 +1,4 @@
-name: Create Pre-release
+name: Create Release
 
 on:
   push:
@@ -10,9 +10,9 @@ env:
 
 jobs:
   build:
-    name: Create new Pre-release
-    # if: "!contains(join(github.event.commits.*.message), '+norelease')"
-    if: "contains(join(github.event.commits.*.message), '+release')"
+    name: Create new release
+    if: "!contains(join(github.event.commits.*.message), '+norelease')"
+    # if: "contains(join(github.event.commits.*.message), '+release')"
     runs-on: ubuntu-latest
 
     steps:
@@ -95,9 +95,8 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               tag_name: 'v${{ steps.gitversion.outputs.majorMinorPatch }}',
-              name: 'v${{ steps.gitversion.outputs.majorMinorPatch }}-pre',
-              prerelease: true,
-              body: 'Pre-release build.'
+              name: 'v${{ steps.gitversion.outputs.majorMinorPatch }}',
+              body: ''
             });
 
             const release = releaseResult.data;
