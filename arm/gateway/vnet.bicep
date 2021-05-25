@@ -20,6 +20,11 @@ var vnetName = empty(vnet) ? '${resourcePrefix}-vnet' : last(split(vnet, '/'))
 var vnetRg = empty(vnet) ? '' : first(split(last(split(vnet, '/resourceGroups/')), '/'))
 var vnetId = empty(vnet) ? resourceId('Microsoft.Network/virtualNetworks', vnetName) : vnet
 
+resource rg_vnet_existing 'Microsoft.Resources/resourceGroups@2020-06-01' existing = if (!empty(vnet)) {
+  name: vnetRg
+  scope: subscription()
+}
+
 resource vnet_new 'Microsoft.Network/virtualNetworks@2020-06-01' = if (empty(vnet)) {
   name: vnetName
   location: resourceGroup().location
@@ -27,47 +32,71 @@ resource vnet_new 'Microsoft.Network/virtualNetworks@2020-06-01' = if (empty(vne
     addressSpace: {
       addressPrefixes: addressPrefixes
     }
-    subnets: []
+    subnets: [
+      {
+        name: gatewaySubnetName
+        properties: {
+          addressPrefix: gatewaySubnetAddressPrefix
+          privateEndpointNetworkPolicies: 'Disabled'
+          privateLinkServiceNetworkPolicies: 'Enabled'
+        }
+      }
+      {
+        name: bastionSubnetName
+        properties: {
+          addressPrefix: bastionSubnetAddressPrefix
+          privateEndpointNetworkPolicies: 'Disabled'
+          privateLinkServiceNetworkPolicies: 'Enabled'
+        }
+      }
+      {
+        name: appGatewaySubnetName
+        properties: {
+          addressPrefix: appGatewaySubnetAddressPrefix
+          privateEndpointNetworkPolicies: 'Disabled'
+          privateLinkServiceNetworkPolicies: 'Enabled'
+        }
+      }
+    ]
     enableDdosProtection: false
     enableVmProtection: false
   }
   tags: tags
 }
 
-module gateway_subnet 'subnet.bicep' = {
+module gateway_subnet 'subnet.bicep' = if (!empty(vnet)) {
   name: 'gatewaySubnet'
+  scope: rg_vnet_existing
   params: {
     vnet: empty(vnet) ? vnet_new.id : vnet
     name: gatewaySubnetName
     addressPrefix: gatewaySubnetAddressPrefix
   }
-  dependsOn: [
-    vnet_new
-  ]
+  dependsOn: []
 }
 
-module appgateway_subnet 'subnet.bicep' = {
+module appgateway_subnet 'subnet.bicep' = if (!empty(vnet)) {
   name: 'appGatewaySubnet'
+  scope: rg_vnet_existing
   params: {
     vnet: empty(vnet) ? vnet_new.id : vnet
     name: appGatewaySubnetName
     addressPrefix: appGatewaySubnetAddressPrefix
   }
   dependsOn: [
-    vnet_new
     gateway_subnet
   ]
 }
 
-module bastion_subnet 'subnet.bicep' = {
+module bastion_subnet 'subnet.bicep' = if (!empty(vnet)) {
   name: 'bastionSubnet'
+  scope: rg_vnet_existing
   params: {
     vnet: empty(vnet) ? vnet_new.id : vnet
     name: bastionSubnetName
     addressPrefix: bastionSubnetAddressPrefix
   }
   dependsOn: [
-    vnet_new
     gateway_subnet
     appgateway_subnet
   ]
@@ -75,6 +104,6 @@ module bastion_subnet 'subnet.bicep' = {
 
 output id string = vnetId
 output name string = vnetName
-output gatewaySubnet string = gateway_subnet.outputs.subnet
-output bastionSubnet string = bastion_subnet.outputs.subnet
-output appGatewaySubnet string = appgateway_subnet.outputs.subnet
+output gatewaySubnet string = empty(vnet) ? resourceId('Microsoft.Network/virtualNetworks/subnets', vnet_new.name, gatewaySubnetName) : gateway_subnet.outputs.id
+output bastionSubnet string = empty(vnet) ? resourceId('Microsoft.Network/virtualNetworks/subnets', vnet_new.name, bastionSubnetName) : bastion_subnet.outputs.id
+output appGatewaySubnet string = empty(vnet) ? resourceId('Microsoft.Network/virtualNetworks/subnets', vnet_new.name, appGatewaySubnetName) : appgateway_subnet.outputs.id
