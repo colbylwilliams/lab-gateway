@@ -16,14 +16,8 @@ resource subnet 'Microsoft.Network/virtualNetworks/subnets@2020-06-01' = if (!us
   }
 }
 
-resource rg_vnet_existing 'Microsoft.Resources/resourceGroups@2020-06-01' existing = if (use_existing) {
-  name: vnetRg
-  scope: subscription()
-}
-
 resource subnet_existing 'Microsoft.Network/virtualNetworks/subnets@2020-06-01' existing = if (use_existing) {
   name: '${vnetName}/${name}'
-  scope: rg_vnet_existing
 }
 
-output subnet string = use_existing ? subnet_existing.id : subnet.id
+output id string = use_existing ? subnet_existing.id : subnet.id
