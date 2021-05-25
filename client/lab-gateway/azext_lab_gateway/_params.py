@@ -70,7 +70,7 @@ def load_arguments(self, _):
         c.argument('bastion_subnet', completer=subnet_completion_list, arg_group='Network', help=subnet_help)
         c.argument('bastion_subnet_address_prefix', arg_group='Network', help='The CIDR prefix to use when creating the Bastion Host subnet')
 
-        c.argument('private_ip_address', help='Private IP Address. Must be within AppGatewaySubnet address prefix and cannot end in .0 - .4 (reserved)')
+        c.argument('private_ip_address', arg_group='Network', help='Private IP Address. Must be within AppGatewaySubnet address prefix and cannot end in .0 - .4 (reserved)')
 
         public_ip_help = 'Name or ID of an existing Public IP Address resource. Will create new resource if none is specified.'
         c.argument('public_ip_address', help=public_ip_help, completer=get_resource_name_completion_list('Microsoft.Network/publicIPAddresses'), arg_group='Network')
