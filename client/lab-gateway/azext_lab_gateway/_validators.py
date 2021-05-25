@@ -22,7 +22,7 @@ from ._github_utils import (github_release_version_exists, get_github_latest_rel
 from ._deploy_utils import (get_resource_group_tags)
 from ._client_factory import (network_client_factory, labs_client_factory)
 from ._constants import (tag_key, get_resource_name, get_function_name)
-from ._utils import get_tag
+from ._utils import (get_tag, same_location)
 
 
 logger = get_logger(__name__)
@@ -30,6 +30,18 @@ logger = get_logger(__name__)
 
 def none_or_empty(val):
     return val in ('', '""', "''") or val is None
+
+
+def get_public_ip(cmd, parts):
+    client = network_client_factory(cmd.cli_ctx).public_ip_addresses
+    rg, name = parts['resource_group'], parts['name']
+    if not all([rg, name]):
+        return None
+    try:
+        vnet = client.get(rg, name)
+        return vnet
+    except ResourceNotFoundError:
+        return None
 
 
 def get_vnet(cmd, parts):
@@ -87,6 +99,7 @@ def process_gateway_create_namespace(cmd, ns):
     get_default_location_from_resource_group(cmd, ns)
     validate_token_lifetime(cmd, ns)
     validate_vnet(cmd, ns)
+    validate_public_ip(cmd, ns)
 
 
 def process_gateway_connect_namespace(cmd, ns):
@@ -191,6 +204,9 @@ def validate_vnet(cmd, ns):
     if vnet is not None:
         logger.info('vnet exists: %s', vnet_name)
         setattr(ns, 'vnet_type', 'existing')
+        if not same_location(ns.location, vnet.location):
+            raise InvalidArgumentValueError(
+                '--vnet {} must be in the same location as the gateway'.format(vnet_name))
         if ns.vnet_address_prefix not in ('', '""', "''") or ns.vnet_address_prefix is not None:
             ns.vnet_address_prefix = None
             if not default_prefix:
@@ -300,6 +316,54 @@ def validate_token_lifetime(cmd, ns):  # pylint: disable=unused-argument
                 '--token-lifetime must be a number between 1 and 59')
 
         ns.token_lifetime = '00:0{}:00'.format(lifetime) if lifetime < 10 else '00:{}:00'.format(lifetime)
+
+
+def validate_public_ip(cmd, ns):
+
+    if none_or_empty(ns.public_ip_address):
+        setattr(ns, 'public_ip_address_type', 'new')
+
+    else:
+        ip_parts, _ = _validate_name_or_id(
+            cmd.cli_ctx, ns.resource_group_name, ns.public_ip_address, 'Microsoft.Network/publicIPAddresses',
+            parent_value=None, parent_type=None)
+
+        ip_name = ip_parts['name']
+
+        ip = get_public_ip(cmd, ip_parts)
+        sub = get_subscription_id(cmd.cli_ctx)
+
+        if ip is not None:
+            setattr(ns, 'public_ip_address_type', 'existing')
+            logger.info('public ip address exists: %s', ip_name)
+
+            if ip_parts['subscription'] != sub:
+                raise InvalidArgumentValueError(
+                    '--public-ip-address {} must in the same subscription as the gateway'.format(ip_name))
+
+            if ip_parts['resource_group'].lower() != ns.resource_group_name.lower():
+                raise InvalidArgumentValueError(
+                    '--public-ip-address {} must in the same resource group as the gateway'.format(ip_name))
+
+            if not same_location(ns.location, ip.location):
+                raise InvalidArgumentValueError(
+                    '--public-ip-address {} must in the same location as the gateway'.format(ip_name))
+
+            if ip.sku.name.lower() != 'standard':
+                raise InvalidArgumentValueError(
+                    '--public-ip-address {} sku must be Standard'.format(ip_name))
+
+            if ip.public_ip_allocation_method.lower() != 'static':
+                raise InvalidArgumentValueError(
+                    '--public-ip-address {} public_ip_allocation_method must static'.format(ip_name))
+
+            if ip.public_ip_address_version.lower() != 'ipv4':
+                raise InvalidArgumentValueError(
+                    '--public-ip-address {} public_ip_address_version must be IPv4'.format(ip_name))
+
+        else:
+            raise InvalidArgumentValueError(
+                '--public-ip-address {} could not be found'.format(ip_name))
 
 
 def validate_private_ip(cmd, ns, prefix):  # pylint: disable=unused-argument

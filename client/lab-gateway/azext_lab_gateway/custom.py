@@ -28,7 +28,7 @@ def lab_gateway_create(cmd, resource_group_name, admin_username, admin_password,
                        bastion_subnet='AzureBastionSubnet', bastion_subnet_address_prefix='10.0.1.0/27',
                        rdgateway_subnet_type=None, appgateway_subnet_type=None, bastion_subnet_type=None,
                        public_ip_address=None, public_ip_address_type=None, private_ip_address='10.0.2.5',
-                       location=None, tags=None, version=None, prerelease=True, index_url=None):
+                       location=None, tags=None, version=None, prerelease=False, index_url=None):
 
     version, _, arm_templates, artifacts = get_release_index(version, prerelease, index_url)
 
@@ -43,8 +43,8 @@ def lab_gateway_create(cmd, resource_group_name, admin_username, admin_password,
     a_params.append('tenantId={}'.format(user_tenant_id))
     a_params.append('tags={}'.format(json.dumps(tags)))
 
-    _, a_outputs = deploy_arm_template_at_resource_group(cmd, resource_group_name,
-                                                         template_uri=a_template, parameters=[a_params])
+    _, a_outputs = deploy_arm_template_at_resource_group(cmd, resource_group_name, template_uri=a_template,
+                                                         parameters=[a_params])
 
     keyvault_name = get_arm_output(a_outputs, 'keyvaultName')
     storage_connection_string = get_arm_output(a_outputs, 'storageConnectionString')
@@ -102,7 +102,6 @@ def lab_gateway_create(cmd, resource_group_name, admin_username, admin_password,
     _, b_outputs = deploy_arm_template_at_resource_group(cmd, resource_group_name, template_uri=b_template,
                                                          parameters=[b_params])
 
-    # scale_set_name = get_arm_output(b_outputs, 'scaleSetName')
     function_name = get_arm_output(b_outputs, 'functionName')
     public_ip = get_arm_output(b_outputs, 'publicIpAddress')
     vnet_id = get_arm_output(b_outputs, 'vnetId')
@@ -118,6 +117,13 @@ def lab_gateway_create(cmd, resource_group_name, admin_username, admin_password,
     tags.update({tag_key('prefix'): resource_prefix})
 
     _ = tag_resource_group(cmd, resource_group_name, tags)
+
+    logger.warning('')
+    logger.warning('Gateway successfully created with the public IP address: %s', public_ip)
+    logger.warning('')
+    logger.warning('IMPORTANT: to complete setup you must register Gateway with your DNS')
+    logger.warning('by creating an A-Record: %s -> %s', cert_cn, public_ip)
+    logger.warning('')
 
     allargs = {
         'public_ip': '{}'.format(public_ip),
@@ -176,7 +182,7 @@ def lab_gateway_show(cmd, resource_group_name, resource_prefix):
 
 def lab_gateway_connect(cmd, resource_group_name, resource_prefix, lab_resource_group_name, lab,
                         function_name=None, gateway_hostname=None,
-                        version=None, prerelease=True, index_url=None):
+                        version=None, prerelease=False, index_url=None):
 
     _, _, arm_templates, _ = get_release_index(version, prerelease, index_url)
 

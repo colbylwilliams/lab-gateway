@@ -2,9 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License. See License.txt in the project root for license information.
 # --------------------------------------------------------------------------------------------
-
-# pylint: disable=too-many-statements
-# pylint: disable=line-too-long
+# pylint: disable=too-many-statements, disable=line-too-long
 
 # from knack.arguments import CLIArgumentType
 from argcomplete.completers import FilesCompleter
@@ -56,7 +54,7 @@ def load_arguments(self, _):
         c.argument('instance_count', help='Number of gateway VMs in the scale set.', type=int, default=1)
         c.argument('token_lifetime', help='TTL of a token embedded in RDP files in minutes.', default=1)
 
-        vnet_help = 'Name or ID of an existing vnet. Will create resource if it does not exist. If you want to use an existing vnet in other resource group, please provide the ID instead of the name of the vnet.'
+        vnet_help = 'Name or ID of an existing vnet. Must be in the same location as the gateway. Will create resource if it does not exist. If you want to use an existing vnet in other resource group, please provide the ID instead of the name of the vnet.'
         c.argument('vnet', help=vnet_help, completer=get_resource_name_completion_list('Microsoft.Network/virtualNetworks'), arg_group='Network')
         c.argument('vnet_address_prefix', arg_group='Network', help='The CIDR prefix to use when creating the vnet')
 
@@ -72,7 +70,7 @@ def load_arguments(self, _):
 
         c.argument('private_ip_address', arg_group='Network', help='Private IP Address. Must be within AppGatewaySubnet address prefix and cannot end in .0 - .4 (reserved)')
 
-        public_ip_help = 'Name or ID of an existing Public IP Address resource. Will create new resource if none is specified.'
+        public_ip_help = 'Name or ID of an existing Public IP Address resource. Must be in the same resource group and location as the gateway. Will create new resource if none is specified.'
         c.argument('public_ip_address', help=public_ip_help, completer=get_resource_name_completion_list('Microsoft.Network/publicIPAddresses'), arg_group='Network')
 
         c.ignore('vnet_type')
