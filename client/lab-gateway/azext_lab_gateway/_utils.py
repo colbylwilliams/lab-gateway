@@ -32,7 +32,18 @@ def open_url_in_browser(url):
               " below in a browser to complete the configuration.\n\n{}\n\n".format(url))
 
 
+def same_location(loc_a, loc_b):
+    if loc_a is None or loc_b is None:
+        return False
+    loc_a_clean = loc_a.lower().replace(' ', '')
+    loc_b_clean = loc_b.lower().replace(' ', '')
+    if loc_a_clean == loc_b_clean:
+        return True
+    return False
+
 # pylint: disable=inconsistent-return-statements
+
+
 def _get_current_user_object_id(graph_client):
     try:
         current_user = graph_client.signed_in_user.get()
