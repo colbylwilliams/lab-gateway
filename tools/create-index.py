@@ -73,7 +73,7 @@ with open(Path.cwd() / index_path, 'w') as f:
 
 assets.append({'name': 'index.json', 'path': '{}/{}'.format(Path.cwd(), 'index.json')})
 
-if ci:
+if not ci:
     with open(Path.cwd() / 'tools/tmp/assets.json', 'w') as f:
         json.dump(assets, f, ensure_ascii=False, indent=4, sort_keys=True)
 
