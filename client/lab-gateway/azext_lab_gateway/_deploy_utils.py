@@ -5,7 +5,6 @@
 # pylint: disable=too-many-statements, too-many-locals
 
 import json
-import requests
 from time import sleep
 from knack.log import get_logger
 from knack.util import CLIError
@@ -21,6 +20,8 @@ from ._client_factory import (resource_client_factory, web_client_factory)
 TRIES = 3
 
 logger = get_logger(__name__)
+
+# pylint: disable=inconsistent-return-statements
 
 
 def deploy_arm_template_at_resource_group(cmd, resource_group_name=None, template_file=None,
