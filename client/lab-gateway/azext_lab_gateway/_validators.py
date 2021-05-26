@@ -281,7 +281,7 @@ def validate_subnet(cmd, ns, subnet, vnet_parts, vnet_prefixes):
                 logger.warning('Ignoring option %s because subnet %s already esists',
                                prefix_property_option, subnet_name)
 
-        if subnet == 'rdgateway':
+        if subnet == 'appgateway':
             prefix = existing_subnet.address_prefix
             validate_private_ip(cmd, ns, prefix)
 
@@ -301,7 +301,7 @@ def validate_subnet(cmd, ns, subnet, vnet_parts, vnet_prefixes):
                     '{} {} is not within the vnet address space (prefixed: {})'.format(
                         prefix_property_option, prefix_property_val, ', '.join(vnet_prefixes)))
 
-        if subnet == 'rdgateway':
+        if subnet == 'appgateway':
             validate_private_ip(cmd, ns, prefix_property_val)
 
 
@@ -370,8 +370,6 @@ def validate_public_ip(cmd, ns):
 
 
 def validate_private_ip(cmd, ns, prefix):  # pylint: disable=unused-argument
-    logger.warning('validating private_ip_address for prefix: %s', prefix)
-    # logger.warning('validating private_ip_address')
     if none_or_empty(ns.private_ip_address) or none_or_empty(prefix):
         raise InvalidArgumentValueError('--private-ip-address and prefix must both have values')
 
@@ -381,7 +379,7 @@ def validate_private_ip(cmd, ns, prefix):  # pylint: disable=unused-argument
         raise InvalidArgumentValueError(
             '--private-ip-address {} is not in subnet network {}'.format(ns.private_ip_address, prefix))
 
-    ip_host = ns.private_ip_address.rsplit('.', 1)[0]
+    ip_host = ns.private_ip_address.rsplit('.', 1)[1]
     if int(ip_host) < 5:
         raise InvalidArgumentValueError(
             '--private-ip-address {} is invalid, addresses ending in .0 - .4 are reserved'.format(
