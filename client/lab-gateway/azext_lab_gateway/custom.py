@@ -30,19 +30,31 @@ def lab_gateway_create(cmd, resource_group_name, admin_username, admin_password,
                        public_ip_address=None, public_ip_address_type=None, private_ip_address='10.0.2.5',
                        location=None, tags=None, version=None, prerelease=False, index_url=None):
 
+    hook = cmd.cli_ctx.get_progress_controller()
+    hook.begin()
+
+    hook.add(message='Fetching index.json from GitHub')
     version, _, arm_templates, artifacts = get_release_index(version, prerelease, index_url)
 
     a_template = get_arm_template(arm_templates, 'deployA')
     b_template = get_arm_template(arm_templates, 'deployB')
 
+    hook.add(message='Getting current user info')
     user_object_id, user_tenant_id = get_user_info(cmd)
 
+    # Creating a subnet as a child resource via ARM results in conflicts, and more importantly,
+    # redeploying a template will delete and recreate the subnet, and ifthe subnet is in use,
+    # the deployments will fail. https://github.com/Azure/bicep/issues/2579
+    # thus for existing vnets we create the missing subnets here vs the ARM template
     if vnet_type == 'existing':
         if rdgateway_subnet_type == 'new':
+            hook.add(message='Creating {}'.format(rdgateway_subnet))
             create_subnet(cmd, vnet, rdgateway_subnet, rdgateway_subnet_address_prefix)
         if appgateway_subnet_type == 'new':
+            hook.add(message='Creating {}'.format(appgateway_subnet))
             create_subnet(cmd, vnet, appgateway_subnet, appgateway_subnet_address_prefix)
         if bastion_subnet_type == 'new':
+            hook.add(message='Creating {}'.format(bastion_subnet))
             create_subnet(cmd, vnet, bastion_subnet, bastion_subnet_address_prefix)
 
     a_params = []
@@ -51,6 +63,8 @@ def lab_gateway_create(cmd, resource_group_name, admin_username, admin_password,
     a_params.append('tenantId={}'.format(user_tenant_id))
     a_params.append('tags={}'.format(json.dumps(tags)))
 
+    # deployA template creates a keyvault, storage account, and log analytics ws
+    hook.add(message='Creating keyvault and storage account')
     _, a_outputs = deploy_arm_template_at_resource_group(cmd, resource_group_name, template_uri=a_template,
                                                          parameters=[a_params])
 
@@ -59,6 +73,8 @@ def lab_gateway_create(cmd, resource_group_name, admin_username, admin_password,
     storage_artifacts_container = get_arm_output(a_outputs, 'artifactsContainerName')
 
     cert_name = 'SSLCertificate'
+    # import the ssl cert required by the application gateway and vmwss
+    hook.add(message='Importing SSL certificate to keyvault')
     _, cert_cn, cert_secret_url = import_certificate(cmd, keyvault_name, cert_name, ssl_cert,
                                                      password=ssl_cert_password)
 
@@ -66,14 +82,17 @@ def lab_gateway_create(cmd, resource_group_name, admin_username, admin_password,
 
     BlobServiceClient = get_sdk(cmd.cli_ctx, ResourceType.DATA_STORAGE_BLOB,
                                 '_blob_service_client#BlobServiceClient')
-
     blob_service_client = BlobServiceClient.from_connection_string(storage_connection_string)
 
+    # upload the artifacts from the github repo
     for artifact_name, artifact_url in artifact_items:
+        hook.add(message='Uploading {} to storage'.format(artifact_name))
         blob_client = blob_service_client.get_blob_client(storage_artifacts_container, artifact_name)
         response = requests.get(artifact_url)
         blob_client.upload_blob(response.content)
 
+    # upload the RDGatewayFedAuth file
+    hook.add(message='Uploading RDGatewayFedAuth.msi to storage')
     blob_client = blob_service_client.get_blob_client(storage_artifacts_container, 'RDGatewayFedAuth.msi')
     blob_client.upload_blob(auth_msi)
 
@@ -101,12 +120,11 @@ def lab_gateway_create(cmd, resource_group_name, admin_username, admin_password,
     if appgateway_subnet_address_prefix is not None:
         b_params.append('appGatewaySubnetAddressPrefix={}'.format(appgateway_subnet_address_prefix))
 
-    # b_params.append('firewallSubnetName={}'.format())
-    # b_params.append('firewallSubnetAddressPrefix={}'.format())
-
     b_params.append('privateIPAddress={}'.format('' if private_ip_address is None else private_ip_address))
     b_params.append('tags={}'.format(json.dumps(tags)))
 
+    # deployB template creates a the rest of the solution
+    hook.add(message='Deploying solution')
     _, b_outputs = deploy_arm_template_at_resource_group(cmd, resource_group_name, template_uri=b_template,
                                                          parameters=[b_params])
 
@@ -114,6 +132,8 @@ def lab_gateway_create(cmd, resource_group_name, admin_username, admin_password,
     public_ip = get_arm_output(b_outputs, 'publicIpAddress')
     vnet_id = get_arm_output(b_outputs, 'vnetId')
 
+    # create the function key for the CreatToken function if it does not exist
+    hook.add(message='Generating auth token')
     _ = get_function_key(cmd, resource_group_name, function_name, 'CreateToken', 'gateway')
 
     tags.update({tag_key('creator'): user_object_id})
@@ -124,9 +144,12 @@ def lab_gateway_create(cmd, resource_group_name, admin_username, admin_password,
     tags.update({tag_key('vnet'): vnet_id})
     tags.update({tag_key('prefix'): resource_prefix})
 
+    # apply the tags at the resource group level
+    hook.add(message='Tagging resource group')
     _ = tag_resource_group(cmd, resource_group_name, tags)
 
-    logger.warning('')
+    hook.end(message=' ')
+    logger.warning(' ')
     logger.warning('Gateway successfully created with the public IP address: %s', public_ip)
     logger.warning('')
     logger.warning('IMPORTANT: to complete setup you must register Gateway with your DNS')
