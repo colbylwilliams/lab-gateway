@@ -484,26 +484,7 @@ resource gatewayWafPolicy 'Microsoft.Network/ApplicationGatewayWebApplicationFir
       mode: 'Prevention'
       state: 'Enabled'
     }
-    customRules: [
-      {
-        name: 'AllowSpecificIPs'
-        priority: 10
-        ruleType: 'MatchRule'
-        action: 'Block'
-        matchConditions: [
-          {
-            operator: 'IPMatch'
-            negationConditon: true
-            matchVariables: [
-              {
-                variableName: 'RemoteAddr'
-              }
-            ]
-            matchValues: []
-          }
-        ]
-      }
-    ]
+    customRules: []
     managedRules: {
       managedRuleSets: [
         {
