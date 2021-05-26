@@ -8,14 +8,14 @@ import json
 from time import sleep
 from knack.log import get_logger
 from knack.util import CLIError
-from msrestazure.tools import resource_id
+from msrestazure.tools import resource_id, parse_resource_id
 from azure.cli.core.commands import LongRunningOperation
 from azure.cli.core.commands.client_factory import get_subscription_id
 from azure.cli.core.profiles import ResourceType, get_sdk
 from azure.cli.core.util import (random_string, sdk_no_wait)
 from azure.cli.core.azclierror import ResourceNotFoundError
 
-from ._client_factory import (resource_client_factory, web_client_factory)
+from ._client_factory import (resource_client_factory, web_client_factory, network_client_factory)
 
 TRIES = 3
 
@@ -110,9 +110,12 @@ def import_certificate(cmd, vault_name, certificate_name, certificate_data,
                        disabled=False, password=None, certificate_policy=None, tags=None):
     import binascii  # pylint: disable=import-outside-toplevel
     from OpenSSL import crypto  # pylint: disable=import-outside-toplevel
-    CertificateAttributes = cmd.get_models('CertificateAttributes', resource_type=ResourceType.DATA_KEYVAULT)
-    SecretProperties = cmd.get_models('SecretProperties', resource_type=ResourceType.DATA_KEYVAULT)
-    CertificatePolicy = cmd.get_models('CertificatePolicy', resource_type=ResourceType.DATA_KEYVAULT)
+    CertificateAttributes, SecretProperties, CertificatePolicy = cmd.get_models(
+        'CertificateAttributes', 'SecretProperties', 'CertificatePolicy',
+        resource_type=ResourceType.DATA_KEYVAULT)
+    # CertificateAttributes = cmd.get_models('CertificateAttributes', resource_type=ResourceType.DATA_KEYVAULT)
+    # SecretProperties = cmd.get_models('SecretProperties', resource_type=ResourceType.DATA_KEYVAULT)
+    # CertificatePolicy = cmd.get_models('CertificatePolicy', resource_type=ResourceType.DATA_KEYVAULT)
 
     x509 = None
     content_type = None
@@ -193,9 +196,33 @@ def import_certificate(cmd, vault_name, certificate_name, certificate_data,
     return result, cn, secret_url
 
 
+def create_subnet(cmd, vnet, subnet_name, address_prefix):
+    Subnet = cmd.get_models('Subnet', resource_type=ResourceType.MGMT_NETWORK)
+
+    vnet_parts = parse_resource_id(vnet)
+
+    vnet_name = vnet_parts['name']
+    resource_group_name = vnet_parts['resource_group']
+
+    subnet = Subnet(name=subnet_name, address_prefix=address_prefix)
+    subnet.private_endpoint_network_policies = "Disabled"
+    subnet.private_link_service_network_policies = "Enabled"
+
+    client = network_client_factory(cmd.cli_ctx).subnets
+
+    create_poller = client.begin_create_or_update(resource_group_name, vnet_name, subnet_name, subnet)
+
+    result = LongRunningOperation(cmd.cli_ctx, start_msg='Creating {}'.format(subnet_name),
+                                  finish_msg='Finished creating {}'.format(subnet_name))(create_poller)
+
+    logger.warning(result)
+
+    return result
+
+
 def tag_resource_group(cmd, resource_group_name, tags):
-    Tags = cmd.get_models('Tags', resource_type=ResourceType.MGMT_RESOURCE_RESOURCES)
-    TagsPatchResource = cmd.get_models('TagsPatchResource', resource_type=ResourceType.MGMT_RESOURCE_RESOURCES)
+    Tags, TagsPatchResource = cmd.get_models(
+        'Tags', 'TagsPatchResource', resource_type=ResourceType.MGMT_RESOURCE_RESOURCES)
 
     sub = get_subscription_id(cmd.cli_ctx)
     scope = resource_id(subscription=sub, resource_group=resource_group_name)

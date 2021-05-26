@@ -13,7 +13,7 @@ from ._utils import (get_user_info)
 from ._github_utils import (get_release_index, get_arm_template, get_artifact)
 from ._deploy_utils import (get_function_key, get_arm_output, import_certificate,
                             deploy_arm_template_at_resource_group, tag_resource_group,
-                            get_resource_group_tags)
+                            get_resource_group_tags, create_subnet)
 from ._constants import TAG_PREFIX, tag_key
 
 
@@ -36,6 +36,14 @@ def lab_gateway_create(cmd, resource_group_name, admin_username, admin_password,
     b_template = get_arm_template(arm_templates, 'deployB')
 
     user_object_id, user_tenant_id = get_user_info(cmd)
+
+    if vnet_type == 'existing':
+        if rdgateway_subnet_type == 'new':
+            create_subnet(cmd, vnet, rdgateway_subnet, rdgateway_subnet_address_prefix)
+        if appgateway_subnet_type == 'new':
+            create_subnet(cmd, vnet, appgateway_subnet, appgateway_subnet_address_prefix)
+        if bastion_subnet_type == 'new':
+            create_subnet(cmd, vnet, bastion_subnet, bastion_subnet_address_prefix)
 
     a_params = []
     a_params.append('resourcePrefix={}'.format(resource_prefix))
