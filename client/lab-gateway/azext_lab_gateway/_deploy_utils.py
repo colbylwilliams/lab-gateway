@@ -100,13 +100,7 @@ def get_function_key(cmd, resource_group_name, function_app_name, function_name,
         return new_key.value
 
 
-def get_azure_policy_match_conditions(cmd, location):
-    # WebApplicationFirewallCustomRule, MatchCondition, MatchVariable = cmd.get_models(
-    #     'WebApplicationFirewallCustomRule', 'MatchCondition', 'MatchVariable',
-    #     resource_type=ResourceType.MGMT_NETWORK)
-
-    MatchCondition, MatchVariable = cmd.get_models('MatchCondition', 'MatchVariable',
-                                                   resource_type=ResourceType.MGMT_NETWORK)
+def get_azure_rp_ips(cmd, location):
 
     client = network_client_factory(cmd.cli_ctx).service_tags
     service_tags = client.list(location)
@@ -114,30 +108,35 @@ def get_azure_policy_match_conditions(cmd, location):
     bcdrs = []
     if same_location(location, 'centralus'):
         bcdrs = ['AzureCloud.centralus', 'AzureCloud.eastus']
-    if same_location(location, 'eastus'):
+    elif same_location(location, 'eastus'):
         bcdrs = ['AzureCloud.eastus', 'AzureCloud.canadacentral', 'AzureCloud.japaneast', 'AzureCloud.eastasia',
                  'AzureCloud.northeurope', 'AzureCloud.australiaeast']
     elif same_location(location, 'eastus2'):
         bcdrs = ['AzureCloud.eastus2', 'AzureCloud.northcentralus', 'AzureCloud.southeastasia',
                  'AzureCloud.uksouth', 'AzureCloud.westus2', 'AzureCloud.westeurope', 'AzureCloud.australiaeast']
 
+    ips = []
     if bcdrs:
-        match_conditions = [MatchCondition(
-            match_variables=[MatchVariable(variable_name='RequestUri')],
-            operator='IPMatch',
-            negation_conditon=True,
-            match_values=t.properties.address_prefixes
-        ) for t in service_tags.values if t in bcdrs]
+        ips = [a for tag in service_tags.values if tag.id in bcdrs for a in tag.properties.address_prefixes]
+        ips = list(dict.fromkeys(ips))  # unique
     else:
-        glbl_tag = next(t for t in service_tags.values if t.id == 'AzureCloud')
-        match_conditions = [MatchCondition(
-            match_variables=[MatchVariable(variable_name='RequestUri')],
-            operator='IPMatch',
-            negation_conditon=True,
-            match_values=glbl_tag.properties.address_prefixes
-        )]
+        tag = next(t for t in service_tags.values if t.id == 'AzureCloud')
+        ips = tag.properties.address_prefixes
 
-    return match_conditions
+    return ips
+
+
+# def update_gateway_ip_rule(cmd):
+    # WebApplicationFirewallCustomRule, MatchCondition, MatchVariable = cmd.get_models(
+    #     'WebApplicationFirewallCustomRule', 'MatchCondition', 'MatchVariable',
+    #     resource_type=ResourceType.MGMT_NETWORK)
+
+    # match_conditions = [MatchCondition(
+    #     match_variables=[MatchVariable(variable_name='RequestUri')],
+    #     operator='IPMatch',
+    #     negation_conditon=True,
+    #     match_values=t.properties.address_prefixes
+    # ) for t in service_tags.values if t.id in bcdrs]
 
 
 def _asn1_to_iso8601(asn1_date):

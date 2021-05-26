@@ -13,7 +13,7 @@ param privateIPAddress string
 
 param logAnalyticsWrokspaceId string = ''
 
-param azureCloudPolicyMatchConditions array
+param azureResourceProviderIps array
 
 param tags object = {}
 
@@ -543,7 +543,19 @@ resource apiWafPolicy 'Microsoft.Network/ApplicationGatewayWebApplicationFirewal
         priority: 10
         ruleType: 'MatchRule'
         action: 'Block'
-        matchConditions: azureCloudPolicyMatchConditions
+        matchConditions: [
+          {
+            operator: 'IPMatch'
+            negationConditon: true
+            matchVariables: [
+              {
+                variableName: 'RemoteAddr'
+              }
+            ]
+            // East US
+            matchValues: azureResourceProviderIps
+          }
+        ]
       }
     ]
     managedRules: {

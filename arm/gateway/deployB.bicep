@@ -37,7 +37,7 @@ param bastionSubnetAddressPrefix string // MUST be at least /27 or larger
 param appGatewaySubnetName string
 param appGatewaySubnetAddressPrefix string // MUST be at least /26 or larger
 
-param azureCloudPolicyMatchConditions array
+param azureResourceProviderIps array
 
 // param firewallSubnetName string = 'AzureFirewallSubnet'
 // param firewallSubnetAddressPrefix string = '10.0.3.0/26'
@@ -140,7 +140,7 @@ module gw 'gateway.bicep' = {
     publicIPAddress: publicIPAddress
     sslCertificateSecretUri: sslCertificateSecretUri
     logAnalyticsWrokspaceId: logWorkspace.outputs.id
-    azureCloudPolicyMatchConditions: azureCloudPolicyMatchConditions
+    azureResourceProviderIps: azureResourceProviderIps
     tags: tags
   }
 }

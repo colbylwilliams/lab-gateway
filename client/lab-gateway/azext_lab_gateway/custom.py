@@ -13,7 +13,7 @@ from ._utils import (get_user_info)
 from ._github_utils import (get_release_index, get_arm_template, get_artifact)
 from ._deploy_utils import (get_function_key, get_arm_output, import_certificate,
                             deploy_arm_template_at_resource_group, tag_resource_group,
-                            get_resource_group_tags, create_subnet, get_azure_policy_match_conditions)
+                            get_resource_group_tags, create_subnet, get_azure_rp_ips)
 from ._constants import TAG_PREFIX, tag_key
 
 
@@ -88,13 +88,17 @@ def lab_gateway_create(cmd, resource_group_name, admin_username, admin_password,
     for artifact_name, artifact_url in artifact_items:
         hook.add(message='Uploading {} to storage'.format(artifact_name))
         blob_client = blob_service_client.get_blob_client(storage_artifacts_container, artifact_name)
-        response = requests.get(artifact_url)
-        blob_client.upload_blob(response.content)
+        blob_exists = blob_client.exists()
+        if not blob_exists:
+            response = requests.get(artifact_url)
+            blob_client.upload_blob(response.content)
 
     # upload the RDGatewayFedAuth file
     hook.add(message='Uploading RDGatewayFedAuth.msi to storage')
     blob_client = blob_service_client.get_blob_client(storage_artifacts_container, 'RDGatewayFedAuth.msi')
-    blob_client.upload_blob(auth_msi)
+    blob_exists = blob_client.exists()
+    if not blob_exists:
+        blob_client.upload_blob(auth_msi)
 
     b_params = []
     b_params.append('resourcePrefix={}'.format(resource_prefix))
@@ -123,8 +127,8 @@ def lab_gateway_create(cmd, resource_group_name, admin_username, admin_password,
     b_params.append('privateIPAddress={}'.format('' if private_ip_address is None else private_ip_address))
 
     hook.add(message='Getting Azure Cloud Resource Provider IPs')
-    match_conditions = get_azure_policy_match_conditions(cmd, location)
-    b_params.append('azureCloudPolicyMatchConditions={}'.format(json.dumps(match_conditions)))
+    azure_rp_ips = get_azure_rp_ips(cmd, location)
+    b_params.append('azureResourceProviderIps={}'.format(json.dumps(azure_rp_ips)))
 
     b_params.append('tags={}'.format(json.dumps(tags)))
 
