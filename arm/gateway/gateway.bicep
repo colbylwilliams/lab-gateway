@@ -24,6 +24,17 @@ var appGatewayName = '${resourcePrefix}-gw'
 var gatewayFirewallPolicyName = '${resourcePrefix}-gw-waf'
 var apiFirewallPolicyName = '${resourcePrefix}-gw-waf-api'
 
+var azureResourceProviderMatchConditions = [for ips in azureResourceProviderIps: {
+  operator: 'IPMatch'
+  negationConditon: true
+  matchVariables: [
+    {
+      variableName: 'RemoteAddr'
+    }
+  ]
+  matchValues: ips
+}]
+
 var gateway = {
   frontendIp: {
     public: {
@@ -543,19 +554,7 @@ resource apiWafPolicy 'Microsoft.Network/ApplicationGatewayWebApplicationFirewal
         priority: 10
         ruleType: 'MatchRule'
         action: 'Block'
-        matchConditions: [
-          {
-            operator: 'IPMatch'
-            negationConditon: true
-            matchVariables: [
-              {
-                variableName: 'RemoteAddr'
-              }
-            ]
-            // East US
-            matchValues: azureResourceProviderIps
-          }
-        ]
+        matchConditions: azureResourceProviderMatchConditions
       }
     ]
     managedRules: {

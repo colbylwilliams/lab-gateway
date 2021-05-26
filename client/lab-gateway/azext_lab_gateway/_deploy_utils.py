@@ -118,7 +118,7 @@ def get_azure_rp_ips(cmd, location):
     ips = []
     if bcdrs:
         ips = [a for tag in service_tags.values if tag.id in bcdrs for a in tag.properties.address_prefixes]
-        ips = list(dict.fromkeys(ips))  # unique
+        # ips = list(dict.fromkeys(ips))  # unique
     else:
         tag = next(t for t in service_tags.values if t.id == 'AzureCloud')
         ips = tag.properties.address_prefixes
