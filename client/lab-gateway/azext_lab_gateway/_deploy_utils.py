@@ -16,6 +16,7 @@ from azure.cli.core.util import (random_string, sdk_no_wait)
 from azure.cli.core.azclierror import ResourceNotFoundError
 
 from ._client_factory import (resource_client_factory, web_client_factory, network_client_factory)
+from ._utils import same_location
 
 TRIES = 3
 
@@ -97,6 +98,46 @@ def get_function_key(cmd, resource_group_name, function_app_name, function_name,
                                                               function_name, key_name, key_info)
 
         return new_key.value
+
+
+def get_azure_policy_match_conditions(cmd, location):
+    # WebApplicationFirewallCustomRule, MatchCondition, MatchVariable = cmd.get_models(
+    #     'WebApplicationFirewallCustomRule', 'MatchCondition', 'MatchVariable',
+    #     resource_type=ResourceType.MGMT_NETWORK)
+
+    MatchCondition, MatchVariable = cmd.get_models('MatchCondition', 'MatchVariable',
+                                                   resource_type=ResourceType.MGMT_NETWORK)
+
+    client = network_client_factory(cmd.cli_ctx).service_tags
+    service_tags = client.list(location)
+
+    bcdrs = []
+    if same_location(location, 'centralus'):
+        bcdrs = ['AzureCloud.centralus', 'AzureCloud.eastus']
+    if same_location(location, 'eastus'):
+        bcdrs = ['AzureCloud.eastus', 'AzureCloud.canadacentral', 'AzureCloud.japaneast', 'AzureCloud.eastasia',
+                 'AzureCloud.northeurope', 'AzureCloud.australiaeast']
+    elif same_location(location, 'eastus2'):
+        bcdrs = ['AzureCloud.eastus2', 'AzureCloud.northcentralus', 'AzureCloud.southeastasia',
+                 'AzureCloud.uksouth', 'AzureCloud.westus2', 'AzureCloud.westeurope', 'AzureCloud.australiaeast']
+
+    if bcdrs:
+        match_conditions = [MatchCondition(
+            match_variables=[MatchVariable(variable_name='RequestUri')],
+            operator='IPMatch',
+            negation_conditon=True,
+            match_values=t.properties.address_prefixes
+        ) for t in service_tags.values if t in bcdrs]
+    else:
+        glbl_tag = next(t for t in service_tags.values if t.id == 'AzureCloud')
+        match_conditions = [MatchCondition(
+            match_variables=[MatchVariable(variable_name='RequestUri')],
+            operator='IPMatch',
+            negation_conditon=True,
+            match_values=glbl_tag.properties.address_prefixes
+        )]
+
+    return match_conditions
 
 
 def _asn1_to_iso8601(asn1_date):

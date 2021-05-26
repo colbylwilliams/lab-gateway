@@ -19,7 +19,7 @@ logger = get_logger(__name__)
 
 
 def get_tag(tags, key):
-    val = tags.get(tag_key(key), None)
+    val = tags.get(tag_key(key), None) if tags else None
     return val
 
 
