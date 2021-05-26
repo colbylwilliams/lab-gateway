@@ -1,0 +1,59 @@
+name: Test Release
+
+on:
+  push:
+    branches: [dev]
+
+env:
+  BUILD_CONFIGURATION: Release
+  SOURCE_DIRECTORY: ./api
+
+jobs:
+  build:
+    name: Create new release
+    # if: "!contains(join(github.event.commits.*.message), '+norelease')"
+    # if: "contains(join(github.event.commits.*.message), '+release')"
+    runs-on: ubuntu-latest
+    env:
+      SHOULD_RELEASE: ${{ contains(join(github.event.commits.*.message), '+test') }}
+
+    steps:
+      - name: Echo A
+        run: echo "${{ contains(join(github.event.commits.*.message), '+test') }}"
+
+      - name: Echo B
+        run: echo "${{ env.SHOULD_RELEASE }}"
+
+      - name: Script Test
+        uses: actions/github-script@v4
+        with:
+          script: |
+
+            const testa = ${{ contains(join(github.event.commits.*.message), '+test') }}
+            const testb = ${{ env.SHOULD_RELEASE }}
+
+            console.log('testa')
+            console.log(testa)
+
+            console.log('')
+
+            console.log('testb')
+            console.log(testb)
+
+            console.log('')
+
+            console.log('if (testa)')
+            if (testa) {
+              console.log('yes')
+            } else {
+              console.log('no')
+            }
+
+            console.log('')
+
+            console.log('if (testb)')
+            if (testb) {
+              console.log('yes')
+            } else {
+              console.log('no')
+            }
