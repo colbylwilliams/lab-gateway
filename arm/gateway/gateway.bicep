@@ -285,15 +285,15 @@ resource gatewayWafPolicy 'Microsoft.Network/ApplicationGatewayWebApplicationFir
       mode: 'Prevention'
       state: 'Enabled'
     }
-    // customRules: [
-    //   {
-    //     name: 'AllowAzureCloudIPs'
-    //     priority: 10
-    //     ruleType: 'MatchRule'
-    //     action: 'Block'
-    //     matchConditions: azureResourceProviderMatchConditions
-    //   }
-    // ]
+    customRules: [
+      {
+        name: 'AllowAzureCloudIPs'
+        priority: 10
+        ruleType: 'MatchRule'
+        action: 'Block'
+        matchConditions: azureResourceProviderMatchConditions
+      }
+    ]
     managedRules: {
       managedRuleSets: [
         {
