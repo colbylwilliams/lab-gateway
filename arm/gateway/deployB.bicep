@@ -1,5 +1,6 @@
 param utcValue string = utcNow('u')
 
+param location string
 param resourcePrefix string
 
 @description('Admin username on all VMs.')
@@ -50,6 +51,7 @@ param tags object = {}
 module logWorkspace 'logAnalytics.bicep' = {
   name: 'logWorkspace'
   params: {
+    location: location
     resourcePrefix: resourcePrefix
     tags: tags
   }
@@ -58,6 +60,7 @@ module logWorkspace 'logAnalytics.bicep' = {
 module kv 'keyvault.bicep' = {
   name: 'keyvault'
   params: {
+    location: location
     resourcePrefix: resourcePrefix
     logAnalyticsWrokspaceId: logWorkspace.outputs.id
     tags: tags
@@ -67,6 +70,7 @@ module kv 'keyvault.bicep' = {
 module certs 'certs.bicep' = {
   name: 'certs'
   params: {
+    location: location
     utcValue: utcValue
     hostName: hostName
     keyVaultName: kv.outputs.name
@@ -77,6 +81,7 @@ module certs 'certs.bicep' = {
 module storage 'storage.bicep' = {
   name: 'storage'
   params: {
+    location: location
     accountName: resourcePrefix
     tags: tags
   }
@@ -85,6 +90,7 @@ module storage 'storage.bicep' = {
 module functionApp 'function.bicep' = {
   name: 'functionApp'
   params: {
+    location: location
     keyVaultName: kv.outputs.name
     resourcePrefix: resourcePrefix
     tokenLifetime: tokenLifetime
@@ -106,6 +112,7 @@ module gwVnet 'vnet.bicep' = {
   name: 'vnet'
   params: {
     vnet: vnet
+    location: location
     resourcePrefix: resourcePrefix
     addressPrefixes: vnetAddressPrefixs
     gatewaySubnetName: gatewaySubnetName
@@ -122,6 +129,7 @@ module gwVnet 'vnet.bicep' = {
 module bastion 'bastion.bicep' = {
   name: 'bastion'
   params: {
+    location: location
     subnet: gwVnet.outputs.bastionSubnet
     resourcePrefix: resourcePrefix
     tags: tags
@@ -131,6 +139,7 @@ module bastion 'bastion.bicep' = {
 module gw 'gateway.bicep' = {
   name: 'appGateway'
   params: {
+    location: location
     resourcePrefix: resourcePrefix
     apiHost: functionApp.outputs.defaultHostName
     keyVaultName: kv.outputs.name
@@ -148,6 +157,7 @@ module gw 'gateway.bicep' = {
 module vmss 'vmss.bicep' = {
   name: 'vmss'
   params: {
+    location: location
     resourcePrefix: resourcePrefix
     adminUsername: adminUsername
     adminPassword: adminPassword
@@ -168,6 +178,7 @@ module vmss 'vmss.bicep' = {
 module privateEndpointDeployment 'privateEndpoint.bicep' = if (tokenPrivateEndpoint) {
   name: 'privateEndpoint'
   params: {
+    location: location
     resourcePrefix: resourcePrefix
     site: functionApp.outputs.id
     vnet: gwVnet.outputs.id

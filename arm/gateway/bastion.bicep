@@ -1,3 +1,4 @@
+param location string
 param resourcePrefix string
 
 param subnet string
@@ -9,7 +10,7 @@ var bastionIPAddressName = '${resourcePrefix}-bh-pip'
 
 resource bastionIPAddress 'Microsoft.Network/publicIPAddresses@2020-06-01' = {
   name: bastionIPAddressName
-  location: resourceGroup().location
+  location: location
   sku: {
     name: 'Standard'
   }
@@ -26,7 +27,7 @@ resource bastionIPAddress 'Microsoft.Network/publicIPAddresses@2020-06-01' = {
 
 resource bastionHost 'Microsoft.Network/bastionHosts@2020-06-01' = {
   name: bastionHostName
-  location: resourceGroup().location
+  location: location
   properties: {
     ipConfigurations: [
       {

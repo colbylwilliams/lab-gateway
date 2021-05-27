@@ -1,3 +1,4 @@
+param location string
 param accountName string
 
 param tags object = {}
@@ -6,7 +7,7 @@ var artifactsContainerName = 'artifacts'
 
 resource storageAccount 'Microsoft.Storage/storageAccounts@2020-08-01-preview' = {
   name: accountName
-  location: resourceGroup().location
+  location: location
   sku: {
     name: 'Standard_RAGRS'
     tier: 'Standard'

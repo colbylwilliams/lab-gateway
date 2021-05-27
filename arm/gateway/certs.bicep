@@ -1,5 +1,7 @@
 param utcValue string
 
+param location string
+
 param hostName string
 param keyVaultName string
 
@@ -17,7 +19,7 @@ var scriptUri = 'https://raw.githubusercontent.com/colbylwilliams/lab-gateway/ma
 
 resource identity 'Microsoft.ManagedIdentity/userAssignedIdentities@2018-11-30' = {
   name: identityName
-  location: resourceGroup().location
+  location: location
 }
 
 resource roleAssignmentId 'Microsoft.Authorization/roleAssignments@2020-04-01-preview' = {
@@ -41,7 +43,7 @@ module accessPolicy 'certsPolicy.bicep' = {
 resource script 'Microsoft.Resources/deploymentScripts@2020-10-01' = {
   kind: 'AzureCLI'
   name: 'createCertificatesScript'
-  location: resourceGroup().location
+  location: location
   identity: {
     type: 'UserAssigned'
     userAssignedIdentities: {

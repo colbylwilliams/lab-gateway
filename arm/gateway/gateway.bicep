@@ -1,3 +1,4 @@
+param location string
 param resourcePrefix string
 
 param subnet string
@@ -446,7 +447,7 @@ resource pip_existing 'Microsoft.Network/publicIPAddresses@2020-06-01' existing 
 
 resource pip_new 'Microsoft.Network/publicIPAddresses@2020-06-01' = if (empty(publicIPAddress)) {
   name: publicIPAddressName
-  location: resourceGroup().location
+  location: location
   sku: {
     name: 'Standard'
   }
@@ -463,7 +464,7 @@ resource pip_new 'Microsoft.Network/publicIPAddresses@2020-06-01' = if (empty(pu
 
 resource identity 'Microsoft.ManagedIdentity/userAssignedIdentities@2018-11-30' = {
   name: appGatewayName
-  location: resourceGroup().location
+  location: location
   tags: tags
 }
 
@@ -478,7 +479,7 @@ module accessPolicy 'gatewayPolicy.bicep' = {
 
 resource gatewayWafPolicy 'Microsoft.Network/ApplicationGatewayWebApplicationFirewallPolicies@2020-08-01' = {
   name: gatewayFirewallPolicyName
-  location: resourceGroup().location
+  location: location
   properties: {
     policySettings: {
       mode: 'Prevention'
@@ -523,7 +524,7 @@ resource gatewayWafPolicy 'Microsoft.Network/ApplicationGatewayWebApplicationFir
 
 resource apiWafPolicy 'Microsoft.Network/ApplicationGatewayWebApplicationFirewallPolicies@2020-08-01' = {
   name: apiFirewallPolicyName
-  location: resourceGroup().location
+  location: location
   properties: {
     policySettings: {
       mode: 'Prevention'
@@ -553,7 +554,7 @@ resource apiWafPolicy 'Microsoft.Network/ApplicationGatewayWebApplicationFirewal
 
 resource gw 'Microsoft.Network/applicationGateways@2020-06-01' = {
   name: appGatewayName
-  location: resourceGroup().location
+  location: location
   dependsOn: [
     accessPolicy
   ]

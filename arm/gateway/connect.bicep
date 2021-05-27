@@ -1,4 +1,6 @@
 param labName string
+
+param location string
 param gatewayHostname string
 
 @secure()
@@ -10,7 +12,7 @@ param tags object = {}
 
 resource lab 'Microsoft.DevTestLab/labs@2018-09-15' = {
   name: labName
-  location: resourceGroup().location
+  location: location
   properties: {
     extendedProperties: {
       RdpGateway: gatewayHostname

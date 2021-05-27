@@ -1,3 +1,4 @@
+param location string
 param resourcePrefix string
 
 param keyVaultName string
@@ -22,7 +23,7 @@ var githubRepoPath = 'api'
 resource appInsights 'Microsoft.Insights/components@2020-02-02-preview' = {
   kind: 'web'
   name: appInsightsName
-  location: resourceGroup().location
+  location: location
   properties: {
     Application_Type: 'web'
   }
@@ -31,7 +32,7 @@ resource appInsights 'Microsoft.Insights/components@2020-02-02-preview' = {
 
 resource hostingPlan 'Microsoft.Web/serverfarms@2020-06-01' = {
   name: hostingPlanName
-  location: resourceGroup().location
+  location: location
   sku: {
     tier: 'ElasticPremium'
     name: 'EP1'
@@ -42,7 +43,7 @@ resource hostingPlan 'Microsoft.Web/serverfarms@2020-06-01' = {
 resource functionApp 'Microsoft.Web/sites@2020-06-01' = {
   kind: 'functionapp'
   name: functionAppName
-  location: resourceGroup().location
+  location: location
   identity: {
     type: 'SystemAssigned'
   }

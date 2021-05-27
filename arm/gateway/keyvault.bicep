@@ -1,3 +1,4 @@
+param location string
 param resourcePrefix string
 
 param logAnalyticsWrokspaceId string = ''
@@ -8,7 +9,7 @@ var keyVaultName = '${resourcePrefix}-kv'
 
 resource vault 'Microsoft.KeyVault/vaults@2019-09-01' = {
   name: keyVaultName
-  location: resourceGroup().location
+  location: location
   properties: {
     enabledForDeployment: true
     enabledForTemplateDeployment: false

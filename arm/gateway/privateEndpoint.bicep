@@ -1,3 +1,4 @@
+param location string
 param resourcePrefix string
 
 param site string
@@ -13,7 +14,7 @@ var privateDnsZoneLinkName = '${resourcePrefix}-dnslink'
 
 resource privateEndpoint 'Microsoft.Network/privateEndpoints@2020-05-01' = {
   name: privateEndpointName
-  location: resourceGroup().location
+  location: location
   properties: {
     subnet: {
       id: subnet

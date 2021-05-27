@@ -1,3 +1,4 @@
+param location string
 param resourcePrefix string
 
 param vnet string = ''
@@ -32,7 +33,7 @@ var vnetId = empty(vnet) ? resourceId('Microsoft.Network/virtualNetworks', vnetN
 
 resource vnet_new 'Microsoft.Network/virtualNetworks@2020-06-01' = if (empty(vnet)) {
   name: vnetName
-  location: resourceGroup().location
+  location: location
   properties: {
     addressSpace: {
       addressPrefixes: addressPrefixes

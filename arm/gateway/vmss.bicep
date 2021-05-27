@@ -1,3 +1,4 @@
+param location string
 param resourcePrefix string
 
 param adminUsername string
@@ -31,7 +32,7 @@ var signCertificateName = last(split(signCertificateSecretUri, '/'))
 
 resource identity 'Microsoft.ManagedIdentity/userAssignedIdentities@2018-11-30' = {
   name: vmssName
-  location: resourceGroup().location
+  location: location
   tags: tags
 }
 
@@ -46,7 +47,7 @@ module accessPolicy 'vmssPolicy.bicep' = {
 
 resource vmss 'Microsoft.Compute/virtualMachineScaleSets@2020-06-01' = {
   name: vmssName
-  location: resourceGroup().location
+  location: location
   identity: {
     type: 'UserAssigned'
     userAssignedIdentities: {
