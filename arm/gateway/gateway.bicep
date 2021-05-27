@@ -18,12 +18,13 @@ param azureResourceProviderIps array
 
 param tags object = {}
 
-var publicIPAddressName = empty(publicIPAddress) ? '${resourcePrefix}-gw-pip' : last(split(publicIPAddress, '/'))
-
 var appGatewayName = '${resourcePrefix}-gw'
 
-var gatewayFirewallPolicyName = '${resourcePrefix}-gw-waf'
-var apiFirewallPolicyName = '${resourcePrefix}-gw-waf-api'
+var publicIPAddressName = empty(publicIPAddress) ? '${appGatewayName}-pip' : last(split(publicIPAddress, '/'))
+
+var gatewayFirewallPolicyName = '${appGatewayName}-waf'
+var apiFirewallPolicyName = '${appGatewayName}-waf-api'
+var listenerFirewallPolicyName = '${appGatewayName}-waf-rdg'
 
 var azureResourceProviderMatchConditions = [for ips in azureResourceProviderIps: {
   operator: 'IPMatch'
@@ -156,8 +157,8 @@ module accessPolicy 'gatewayPolicy.bicep' = {
   }
 }
 
-resource gatewayWafPolicy 'Microsoft.Network/ApplicationGatewayWebApplicationFirewallPolicies@2020-08-01' = {
-  name: gatewayFirewallPolicyName
+resource listenerWafPolicy 'Microsoft.Network/ApplicationGatewayWebApplicationFirewallPolicies@2020-08-01' = {
+  name: listenerFirewallPolicyName
   location: location
   properties: {
     policySettings: {
@@ -194,6 +195,51 @@ resource gatewayWafPolicy 'Microsoft.Network/ApplicationGatewayWebApplicationFir
               ]
             }
           ]
+        }
+      ]
+    }
+  }
+  tags: tags
+}
+
+resource gatewayWafPolicy 'Microsoft.Network/ApplicationGatewayWebApplicationFirewallPolicies@2020-08-01' = {
+  name: gatewayFirewallPolicyName
+  location: location
+  properties: {
+    policySettings: {
+      mode: 'Prevention'
+      state: 'Enabled'
+    }
+    customRules: []
+    managedRules: {
+      managedRuleSets: [
+        {
+          ruleSetType: 'OWASP'
+          ruleSetVersion: '3.1'
+          // ruleGroupOverrides: [
+          //   {
+          //     ruleGroupName: 'REQUEST-920-PROTOCOL-ENFORCEMENT'
+          //     rules: [
+          //       {
+          //         ruleId: '920100' // Invalid HTTP Request Line rule
+          //         state: 'Disabled' // Disabled to allow RDG_OUT_DATA and RPC_IN_DATA
+          //       }
+          //       {
+          //         ruleId: '920440' // URL file extension is restricted by policy
+          //         state: 'Disabled' // Disabled to allow connection to /rpc/rpcproxy.dll
+          //       }
+          //     ]
+          //   }
+          //   {
+          //     ruleGroupName: 'REQUEST-911-METHOD-ENFORCEMENT'
+          //     rules: [
+          //       {
+          //         ruleId: '911100' // Method is not allowed by policy
+          //         state: 'Disabled' // Disabled to allow RDG_OUT_DATA and RPC_IN_DATA
+          //       }
+          //     ]
+          //   }
+          // ]
         }
       ]
     }
@@ -349,6 +395,9 @@ resource gw 'Microsoft.Network/applicationGateways@2020-06-01' = {
           sslCertificate: {
             id: resourceId('Microsoft.Network/applicationGateways/sslCertificates/', appGatewayName, gatewayHost)
           }
+          firewallPolicy: {
+            id: listenerWafPolicy.id
+          }
         }
       }
       {
@@ -358,6 +407,9 @@ resource gw 'Microsoft.Network/applicationGateways@2020-06-01' = {
           frontendIPConfiguration: gateway.frontendIp.private.ref
           frontendPort: {
             id: resourceId('Microsoft.Network/applicationGateways/frontendPorts/', appGatewayName, 'Port80')
+          }
+          firewallPolicy: {
+            id: listenerWafPolicy.id
           }
           sslCertificate: null
         }
