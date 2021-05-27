@@ -74,12 +74,12 @@ jobs:
         run: python ./tools/create-index.py ${{ steps.gitversion.outputs.majorMinorPatch }}
 
       - name: Get CLI Version
-        if: env.BUILD_CLI
+        if: ${{ env.BUILD_CLI }}
         id: cli_version
         run: python ./tools/cli-version.py
 
       - name: Build CLI
-        if: env.BUILD_CLI
+        if: ${{ env.BUILD_CLI }}
         run: bash ./tools/build-cli.sh
 
       - name: Publish Release Assets
