@@ -88,6 +88,7 @@ def load_arguments(self, _):
         c.ignore('lab_keyvault')
         c.ignore('function_name')
         c.ignore('gateway_hostname')
+        c.ignore('location')
 
     for scope in ['lab-gateway token show']:
         with self.argument_context(scope) as c:

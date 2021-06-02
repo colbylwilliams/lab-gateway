@@ -8,7 +8,7 @@ import os
 import ipaddress
 from re import match
 from knack.log import get_logger
-from msrestazure.tools import resource_id
+from msrestazure.tools import resource_id  # , parse_resource_id
 from azure.core.exceptions import ResourceNotFoundError
 from azure.cli.core.azclierror import (MutuallyExclusiveArgumentError, InvalidArgumentValueError)
 from azure.cli.core.commands.client_factory import get_subscription_id
@@ -86,17 +86,17 @@ def get_lab_vnets(cmd, parts):
     if not all([rg, name]):
         return None
     try:
-        lab = client.list(rg, name)
+        lab = client.list(rg, name, expand="properties($expand=externalSubnets)")
         return lab
     except ResourceNotFoundError:
         return None
 
 
 def process_gateway_create_namespace(cmd, ns):
+    get_default_location_from_resource_group(cmd, ns)
     validate_resource_prefix(cmd, ns)
     index_version_validator(cmd, ns)
     validate_gateway_tags(ns)
-    get_default_location_from_resource_group(cmd, ns)
     validate_token_lifetime(cmd, ns)
     validate_vnet(cmd, ns)
     validate_public_ip(cmd, ns)
@@ -105,6 +105,7 @@ def process_gateway_create_namespace(cmd, ns):
 def process_gateway_connect_namespace(cmd, ns):
     validate_resource_prefix(cmd, ns)
     index_version_validator(cmd, ns)
+
     tags = get_resource_group_tags(cmd, ns.resource_group_name)
     validate_function_name(ns, tags)
     validate_gateway_hostname(ns, tags)
@@ -115,11 +116,63 @@ def process_gateway_connect_namespace(cmd, ns):
 
     lab = get_lab(cmd, lab_parts)
     if lab:
-        ns.lab = lab_parts['name']
+        # ns.lab = lab_parts['name']
+        ns.lab = lab.name
+        ns.location = lab.location
     else:
         raise ResourceNotFoundError('Lab {} not found'.format(ns.lab))
 
-    # vnets = get_lab_vnets(cmd, lab_parts)
+    # lab_vnets = get_lab_vnets(cmd, lab_parts)
+
+    # for lab_vnet in lab_vnets:
+    #     logger.warning('vnet.name: %s', lab_vnet.name)
+    #     logger.warning('vnet.external_provider_resource_id: %s', lab_vnet.external_provider_resource_id)
+    #     logger.warning('')
+
+    #     allowed_subnets = lab_vnet.allowed_subnets
+    #     external_subnets = lab_vnet.external_subnets
+    #     subnet_overrides = lab_vnet.subnet_overrides
+
+    #     if allowed_subnets:
+    #         logger.warning('  allowed_subnets:')
+    #         for allowed_subnet in allowed_subnets:
+    #             logger.warning('    resource_id: %s', allowed_subnet.resource_id)
+    #             logger.warning('    lab_subnet_name: %s', allowed_subnet.lab_subnet_name)
+    #             logger.warning('    allow_public_ip: %s', allowed_subnet.allow_public_ip)
+    #             logger.warning(' ')
+
+    #         logger.warning(' ')
+
+    #     if external_subnets:
+    #         logger.warning('  external_subnets:')
+    #         for external_subnet in external_subnets:
+    #             logger.warning('    id: %s', external_subnet.id)
+    #             logger.warning('    name: %s', external_subnet.name)
+    #             logger.warning('    ')
+
+    #         logger.warning('    ')
+
+    #     if external_subnets:
+    #         logger.warning('  subnet_overrides:')
+    #         for subnet_override in subnet_overrides:
+    #             logger.warning('    resource_id: %s:', subnet_override.resource_id)
+    #             logger.warning('    lab_subnet_name: %s:', subnet_override.lab_subnet_name)
+    #             logger.warning('    use_in_vm_creation_permission: %s:',
+    #                            subnet_override.use_in_vm_creation_permission)
+    #             logger.warning('    use_public_ip_address_permission: %s:',
+    #                            subnet_override.use_public_ip_address_permission)
+    #             logger.warning('    shared_public_ip_address_configuration: %s:',
+    #                            subnet_override.shared_public_ip_address_configuration)
+    #             logger.warning('    virtual_network_pool_name: %s:',
+    #                            subnet_override.virtual_network_pool_name)
+    #             logger.warning('    ')
+
+    #         logger.warning(' ')
+
+    #     logger.warning(' ')
+
+    # vnets = [get_vnet(cmd, parse_resource_id(v.external_provider_resource_id)) for v in lab_vnets]
+
     # ns.lab_vnets = [v.id for v in vnets]
     # ns.lab_keyvault = lab.vault_name
 

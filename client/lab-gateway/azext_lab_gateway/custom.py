@@ -30,11 +30,12 @@ def lab_gateway_create(cmd, resource_group_name, admin_username, admin_password,
                        public_ip_address=None, public_ip_address_type=None, private_ip_address='10.0.2.5',
                        location=None, tags=None, version=None, prerelease=False, index_url=None):
 
+    version, _, arm_templates, artifacts = get_release_index(version, prerelease, index_url)
+
+    logger.warning('Deploying%s version: %s', ' prerelease' if prerelease else '', version)
+
     hook = cmd.cli_ctx.get_progress_controller()
     hook.begin()
-
-    hook.add(message='Fetching index.json from GitHub')
-    version, _, arm_templates, artifacts = get_release_index(version, prerelease, index_url)
 
     a_template = get_arm_template(arm_templates, 'deployA')
     b_template = get_arm_template(arm_templates, 'deployB')
@@ -58,6 +59,7 @@ def lab_gateway_create(cmd, resource_group_name, admin_username, admin_password,
             create_subnet(cmd, vnet, bastion_subnet, bastion_subnet_address_prefix)
 
     a_params = []
+    a_params.append('location={}'.format(location))
     a_params.append('resourcePrefix={}'.format(resource_prefix))
     a_params.append('userId={}'.format(user_object_id))
     a_params.append('tenantId={}'.format(user_tenant_id))
@@ -101,6 +103,7 @@ def lab_gateway_create(cmd, resource_group_name, admin_username, admin_password,
         blob_client.upload_blob(auth_msi)
 
     b_params = []
+    b_params.append('location={}'.format(location))
     b_params.append('resourcePrefix={}'.format(resource_prefix))
     b_params.append('adminUsername={}'.format(admin_username))
     b_params.append('adminPassword={}'.format(admin_password))
@@ -149,59 +152,34 @@ def lab_gateway_create(cmd, resource_group_name, admin_username, admin_password,
     tags.update({tag_key('hostname'): cert_cn})
     tags.update({tag_key('function'): function_name})
     tags.update({tag_key('publicIp'): public_ip})
-    tags.update({tag_key('privateIp'): private_ip_address})
     tags.update({tag_key('vnet'): vnet_id})
-    tags.update({tag_key('prefix'): resource_prefix})
+    tags.update({tag_key('privateIp'): '{}'.format(private_ip_address)})
+    tags.update({tag_key('prefix'): '{}'.format(resource_prefix)})
 
     # apply the tags at the resource group level
     hook.add(message='Tagging resource group')
     _ = tag_resource_group(cmd, resource_group_name, tags)
+
+    sub = get_subscription_id(cmd.cli_ctx)
 
     hook.end(message=' ')
     logger.warning(' ')
     logger.warning('Gateway successfully created with the public IP address: %s', public_ip)
     logger.warning('')
     logger.warning('IMPORTANT: to complete setup you must register Gateway with your DNS')
-    logger.warning('by creating an A-Record: %s -> %s', cert_cn, public_ip)
+    logger.warning('           by creating an A-Record: %s -> %s', cert_cn, public_ip)
     logger.warning('')
 
-    allargs = {
-        'public_ip': '{}'.format(public_ip),
-        'resourcePrefix': '{}'.format(resource_prefix),
-        'keyvault_name': '{}'.format(keyvault_name),
-        'storage_connection_string': '******',
-        'storage_artifacts_container': '{}'.format(storage_artifacts_container),
-        'resource_group_name': '{}'.format(resource_group_name),
-        'location': '{}'.format(location),
-        # 'tags': '{}'.format(tags),
-        'admin_username': '{}'.format(admin_username),
-        'admin_password': '******',
-        'ssl_cert_password': '******',
-        'instance_count': '{}'.format(instance_count),
-        'token_lifetime': '{}'.format(token_lifetime),
-        'vnet': '{}'.format(vnet),
-        # 'vnet_type': '{}'.format(vnet_type),
-        'vnet_address_prefix': '{}'.format(vnet_address_prefix),
-        'rdgateway_subnet': '{}'.format(rdgateway_subnet),
-        'rdgateway_subnet_address_prefix': '{}'.format(rdgateway_subnet_address_prefix),
-        # 'rdgateway_subnet_type': '{}'.format(rdgateway_subnet_type),
-        'appgateway_subnet': '{}'.format(appgateway_subnet),
-        'appgateway_subnet_address_prefix': '{}'.format(appgateway_subnet_address_prefix),
-        # 'appgateway_subnet_type': '{}'.format(appgateway_subnet_type),
-        'bastion_subnet': '{}'.format(bastion_subnet),
-        'bastion_subnet_address_prefix': '{}'.format(bastion_subnet_address_prefix),
-        # 'bastion_subnet_type': '{}'.format(bastion_subnet_type),
-        'private_ip_address': '{}'.format(private_ip_address),
-        'public_ip_address': '{}'.format(public_ip_address),
-        # 'public_ip_address_type': '{}'.format(public_ip_address_type),
-        'version': '{}'.format(version),
-        'prerelease': '{}'.format(prerelease),
-        'index_url': '{}'.format(index_url),
-        # 'scale_set_name': '{}'.format(scale_set_name),
-        'function_name': '{}'.format(function_name),
-    }
+    result = {}
+    result.update({'location': '{}'.format(location)})
+    result.update({'subscription': sub})
+    result.update({'resourceGroup': '{}'.format(resource_group_name)})
 
-    return allargs
+    for k in tags:
+        if k.startswith(TAG_PREFIX):
+            result.update({k.split(':')[1]: tags.get(k, None)})
+
+    return result
 
 
 def lab_gateway_show(cmd, resource_group_name, resource_prefix):
@@ -210,7 +188,8 @@ def lab_gateway_show(cmd, resource_group_name, resource_prefix):
 
     result = {}
 
-    result.update({'subscriptionId': sub})
+    # result.update({'location': location})
+    result.update({'subscription': sub})
     result.update({'resourceGroup': resource_group_name})
 
     for k in tags:
@@ -221,7 +200,7 @@ def lab_gateway_show(cmd, resource_group_name, resource_prefix):
 
 
 def lab_gateway_connect(cmd, resource_group_name, resource_prefix, lab_resource_group_name, lab,
-                        function_name=None, gateway_hostname=None,
+                        function_name=None, gateway_hostname=None, location=None,
                         version=None, prerelease=False, index_url=None):
 
     _, _, arm_templates, _ = get_release_index(version, prerelease, index_url)
@@ -232,6 +211,7 @@ def lab_gateway_connect(cmd, resource_group_name, resource_prefix, lab_resource_
 
     params = []
     params.append('labName={}'.format(lab))
+    params.append('location={}'.format(location))
     params.append('gatewayHostname={}'.format(gateway_hostname))
     params.append('gatewayToken={}'.format(token))
 
@@ -239,6 +219,7 @@ def lab_gateway_connect(cmd, resource_group_name, resource_prefix, lab_resource_
                                                       parameters=[params])
 
     return result
+    # return params
 
 
 def lab_gateway_token_show(cmd, resource_group_name, resource_prefix, function_name=None):
