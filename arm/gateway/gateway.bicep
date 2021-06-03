@@ -167,7 +167,7 @@ resource gatewayWafPolicy 'Microsoft.Network/ApplicationGatewayWebApplicationFir
     }
     customRules: [
       {
-        name: 'UrlRule'
+        name: 'BlockUnknownUris'
         priority: 9
         ruleType: 'MatchRule'
         action: 'Block'
