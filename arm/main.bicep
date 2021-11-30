@@ -26,7 +26,7 @@ param tags object = {}
 
 // only used if an existing VNet is NOT provided
 param vnetName string = 'vnet-hub'
-param vnetAddressPrefixs array = [
+param vnetAddressPrefixes array = [
   '10.0.0.0/16'
 ]
 
@@ -127,7 +127,7 @@ module hb 'network/hub.bicep' = {
   scope: hbrg
   params: {
     name: vnetName
-    addressPrefixs: vnetAddressPrefixs
+    addressPrefixs: vnetAddressPrefixes
     subnets: subnets
     tags: tags
   }

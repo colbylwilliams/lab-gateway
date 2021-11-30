@@ -67,7 +67,7 @@ def lab_gateway_create(cmd, resource_group_name, admin_username, admin_password,
     a_params.append('tenantId={}'.format(user_tenant_id))
     a_params.append('tags={}'.format(json.dumps(tags)))
 
-    # deployA template creates a keyvault, storage account, and log analytics ws
+    # deployA template creates a keyvault, storage account, and log analytics workspace
     hook.add(message='Creating keyvault and storage account')
     _, a_outputs = deploy_arm_template_at_resource_group(cmd, resource_group_name, template_uri=a_template,
                                                          parameters=[a_params])
@@ -116,7 +116,7 @@ def lab_gateway_create(cmd, resource_group_name, admin_username, admin_password,
     b_params.append('publicIPAddress={}'.format('' if public_ip_address is None else public_ip_address))
     b_params.append('tokenPrivateEndpoint={}'.format('false'))
     b_params.append('instanceCount={}'.format(instance_count))
-    b_params.append('vnetAddressPrefixs={}'.format(json.dumps([vnet_address_prefix])))
+    b_params.append('vnetAddressPrefixes={}'.format(json.dumps([vnet_address_prefix])))
 
     b_params.append('gatewaySubnetName={}'.format(rdgateway_subnet))
     if rdgateway_subnet_address_prefix is not None:

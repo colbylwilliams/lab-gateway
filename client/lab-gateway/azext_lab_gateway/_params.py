@@ -43,7 +43,7 @@ def load_arguments(self, _):
             c.argument('prerelease', options_list=['--pre'], action='store_true', help='Deploy latest prerelease version.', arg_group='Advanced')
             c.argument('index_url', help='URL to custom index.json file.', arg_group='Advanced')
 
-    # lab-gateway deploy uses a command level validator, param validators will be ignored
+    # lab-gateway create uses a command level validator, param validators will be ignored
     # for scope in ['lab-gateway create', 'lab-gateway test']:
     #     with self.argument_context(scope) as c:
     with self.argument_context('lab-gateway create') as c:

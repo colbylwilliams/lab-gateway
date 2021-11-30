@@ -25,7 +25,7 @@ param tokenPrivateEndpoint bool = true
 param instanceCount int
 
 // only used if an existing VNet is NOT provided
-param vnetAddressPrefixs array
+param vnetAddressPrefixes array
 
 // If an existing VNet is provided, the following subnets must exist
 // update the address prefixes with the prefixes used in the subnets
@@ -114,7 +114,7 @@ module gwVnet 'vnet.bicep' = {
     vnet: vnet
     location: location
     resourcePrefix: resourcePrefix
-    addressPrefixes: vnetAddressPrefixs
+    addressPrefixes: vnetAddressPrefixes
     gatewaySubnetName: gatewaySubnetName
     gatewaySubnetAddressPrefix: gatewaySubnetAddressPrefix
     bastionSubnetAddressPrefix: bastionSubnetAddressPrefix
