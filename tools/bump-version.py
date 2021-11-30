@@ -6,7 +6,7 @@ from packaging.version import parse
 parser = argparse.ArgumentParser()
 parser.add_argument('--major', action='store_true', help='bump major version')
 parser.add_argument('--minor', action='store_true', help='bump minor version')
-parser.add_argument('--notes', nargs='*', default=['Bug fixes and minor improvements.'], help='bump minor version')
+parser.add_argument('--notes', nargs='*', default=['Bug fixes and minor improvements.'], help='notes to associate with the version release notes')
 
 args = parser.parse_args()
 

@@ -33,7 +33,8 @@ gateway_resource_group_name_type = CLIArgumentType(
 
 def load_arguments(self, _):
 
-    for scope in ['lab-gateway create', 'lab-gateway show', 'lab-gateway lab connect', 'lab-gateway token show', 'lab-gateway ip']:
+    # for scope in ['lab-gateway create', 'lab-gateway show', 'lab-gateway lab connect', 'lab-gateway token show', 'lab-gateway ip']:
+    for scope in ['lab-gateway create', 'lab-gateway show', 'lab-gateway lab connect', 'lab-gateway token show']:
         with self.argument_context(scope) as c:
             c.ignore('resource_prefix')
 
@@ -105,7 +106,7 @@ def load_arguments(self, _):
             # c.argument('location', get_location_type(self.cli_ctx))
             c.ignore('gateway_function_name')
 
-    for scope in ['lab-gateway ip add', 'lab-gateway ip remove']:
-        with self.argument_context(scope) as c:
-            c.argument('ips', nargs='+',
-                       help='Space-separated IP addresses or ranges to allow access to gateway.')
+    # for scope in ['lab-gateway ip add', 'lab-gateway ip remove']:
+    #     with self.argument_context(scope) as c:
+    #         c.argument('ips', nargs='+',
+    #                    help='Space-separated IP addresses or ranges to allow access to gateway.')

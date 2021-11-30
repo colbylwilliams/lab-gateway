@@ -3,6 +3,10 @@
 Release History
 ===============
 
+0.4.0
+++++++
+* Preview release
+
 0.3.0
 ++++++
 + More robust validation

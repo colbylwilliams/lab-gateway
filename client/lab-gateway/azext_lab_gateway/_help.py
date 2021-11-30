@@ -47,6 +47,20 @@ examples:
     text: az lab-gateway show -g ResourceGroup
 """
 
+helps['lab-gateway lab'] = """
+type: group
+short-summary: Manage Labs connected to a gateway.
+"""
+
+helps['lab-gateway lab connect'] = """
+type: command
+short-summary: Connect a Lab to a gateway.
+examples:
+  - name: Connect a Lab to a gateway.
+    text: az lab-gateway lab connect --gateway GatewayResourceGroup -g MyLabGroup -n MyLabName
+"""
+
+
 helps['lab-gateway token'] = """
 type: group
 short-summary: Manage gateway tokens.
