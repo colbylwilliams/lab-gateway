@@ -47,17 +47,6 @@ examples:
     text: az lab-gateway show -g ResourceGroup
 """
 
-helps['lab-gateway connect'] = """
-type: command
-short-summary: Connect a gateway to a DevTest Lab.
-examples:
-  - name: Connect a gateway to a DevTest Lab.
-    text: |
-      az lab-gateway connect -g GatewayResourceGroup \\
-        --lab-group LabResourceGroup \\
-        --lab MyLab
-"""
-
 helps['lab-gateway token'] = """
 type: group
 short-summary: Manage gateway tokens.

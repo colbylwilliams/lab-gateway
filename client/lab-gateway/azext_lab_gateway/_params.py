@@ -4,7 +4,8 @@
 # --------------------------------------------------------------------------------------------
 # pylint: disable=too-many-statements, disable=line-too-long
 
-# from knack.arguments import CLIArgumentType
+from knack.arguments import CLIArgumentType
+
 from argcomplete.completers import FilesCompleter
 
 from azure.cli.core.commands.parameters import (get_location_type, tags_type,
@@ -21,13 +22,22 @@ from ._completers import (subnet_completion_list, get_resource_name_completion_l
 #     id_part='resource_group',
 # )
 
+gateway_resource_group_name_type = CLIArgumentType(
+    options_list=['--gateway-resource-group', '--gateway'],
+    completer=get_resource_group_completion_list,
+    # id_part='resource_group',
+    help="Name of the Gateway resource group. You can configure the default using `az configure --defaults labgateway=<name>`",
+    configured_default='labgateway',
+)
+
+
 def load_arguments(self, _):
 
-    for scope in ['lab-gateway create', 'lab-gateway show', 'lab-gateway connect', 'lab-gateway token show']:
+    for scope in ['lab-gateway create', 'lab-gateway show', 'lab-gateway lab connect', 'lab-gateway token show', 'lab-gateway ip']:
         with self.argument_context(scope) as c:
             c.ignore('resource_prefix')
 
-    for scope in ['lab-gateway create', 'lab-gateway connect']:
+    for scope in ['lab-gateway create', 'lab-gateway lab connect']:
         with self.argument_context(scope) as c:
             c.argument('version', options_list=['--version', '-v'], help='Gateway version. Default: latest stable.', arg_group='Advanced')
             c.argument('prerelease', options_list=['--pre'], action='store_true', help='Deploy latest prerelease version.', arg_group='Advanced')
@@ -79,18 +89,23 @@ def load_arguments(self, _):
         c.ignore('bastion_subnet_type')
         c.ignore('public_ip_address_type')
 
-    with self.argument_context('lab-gateway connect') as c:
-        c.argument('lab', help='The Lab',
-                   completer=get_lab_name_completion_list('lab_resource_group_name'))
-        c.argument('lab_resource_group_name', options_list=['--lab-resource-group', '--lab-group'],
-                   help="Name of Labs resource group", completer=get_resource_group_completion_list)
-        c.ignore('lab_vnet')
-        c.ignore('lab_keyvault')
-        c.ignore('function_name')
+    with self.argument_context('lab-gateway lab connect') as c:
+        c.argument('gateway_resource_group_name', gateway_resource_group_name_type)
+        c.argument('lab_name', options_list=['--name', '-n'], id_part='name',
+                   help='Name of the lab', completer=get_lab_name_completion_list())
+        # c.ignore('lab_vnet')
+        # c.ignore('lab_keyvault')
+        c.ignore('lab_location')
+        c.ignore('gateway_function_name')
         c.ignore('gateway_hostname')
-        c.ignore('location')
+        c.ignore('gateway_locations')
 
     for scope in ['lab-gateway token show']:
         with self.argument_context(scope) as c:
             # c.argument('location', get_location_type(self.cli_ctx))
-            c.ignore('function_name')
+            c.ignore('gateway_function_name')
+
+    for scope in ['lab-gateway ip add', 'lab-gateway ip remove']:
+        with self.argument_context(scope) as c:
+            c.argument('ips', nargs='+',
+                       help='Space-separated IP addresses or ranges to allow access to gateway.')

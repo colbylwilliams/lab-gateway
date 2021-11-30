@@ -13,7 +13,9 @@ from ._utils import (get_user_info)
 from ._github_utils import (get_release_index, get_arm_template, get_artifact)
 from ._deploy_utils import (get_function_key, get_arm_output, import_certificate,
                             deploy_arm_template_at_resource_group, tag_resource_group,
-                            get_resource_group_tags, create_subnet, get_azure_rp_ips)
+                            get_resource_group_tags, create_subnet, get_azure_rp_ips,
+                            update_api_waf_policy, add_ips_gateway_waf_policy,
+                            remove_ips_gateway_waf_policy)
 from ._constants import TAG_PREFIX, tag_key
 
 
@@ -44,7 +46,7 @@ def lab_gateway_create(cmd, resource_group_name, admin_username, admin_password,
     user_object_id, user_tenant_id = get_user_info(cmd)
 
     # Creating a subnet as a child resource via ARM results in conflicts, and more importantly,
-    # redeploying a template will delete and recreate the subnet, and ifthe subnet is in use,
+    # redeploying a template will delete and recreate the subnet, i.e. if the subnet is in use,
     # the deployments will fail. https://github.com/Azure/bicep/issues/2579
     # thus for existing vnets we create the missing subnets here vs the ARM template
     if vnet_type == 'existing':
@@ -155,6 +157,7 @@ def lab_gateway_create(cmd, resource_group_name, admin_username, admin_password,
     tags.update({tag_key('vnet'): vnet_id})
     tags.update({tag_key('privateIp'): '{}'.format(private_ip_address)})
     tags.update({tag_key('prefix'): '{}'.format(resource_prefix)})
+    tags.update({tag_key('locations'): json.dumps(['{}'.format(location.lower().replace(' ', ''))])})
 
     # apply the tags at the resource group level
     hook.add(message='Tagging resource group')
@@ -199,28 +202,79 @@ def lab_gateway_show(cmd, resource_group_name, resource_prefix):
     return result
 
 
-def lab_gateway_connect(cmd, resource_group_name, resource_prefix, lab_resource_group_name, lab,
-                        function_name=None, gateway_hostname=None, location=None,
-                        version=None, prerelease=False, index_url=None):
+def lab_gateway_lab_connect(cmd, resource_group_name, lab_name, gateway_resource_group_name, resource_prefix,
+                            lab_location=None, gateway_function_name=None, gateway_hostname=None,
+                            gateway_locations=None, version=None, prerelease=False, index_url=None):
 
-    _, _, arm_templates, _ = get_release_index(version, prerelease, index_url)
+    version, _, arm_templates, _ = get_release_index(version, prerelease, index_url)
+
+    logger.warning('Connecting lab using%s version: %s', ' prerelease' if prerelease else '', version)
+
+    # foo = {
+    #     'resource_group_name': '{}'.format(resource_group_name),
+    #     'lab_name': '{}'.format(lab_name),
+    #     'gateway_resource_group_name': '{}'.format(gateway_resource_group_name),
+    #     'resource_prefix': '{}'.format(resource_prefix),
+    #     'lab_location': '{}'.format(lab_location),
+    #     'gateway_function_name': '{}'.format(gateway_function_name),
+    #     'gateway_hostname': '{}'.format(gateway_hostname),
+    #     'gateway_locations': '{}'.format(gateway_locations)
+    # }
+
+    # return foo
+
+    hook = cmd.cli_ctx.get_progress_controller()
+    hook.begin()
 
     template = get_arm_template(arm_templates, 'connect')
 
-    token = get_function_key(cmd, resource_group_name, function_name, 'CreateToken', 'gateway')
+    hook.add(message='Getting gateway auth token')
+    token = get_function_key(cmd, gateway_resource_group_name, gateway_function_name, 'CreateToken', 'gateway')
+
+    if lab_location not in gateway_locations:
+        hook.add(message='Adding {} Azure region IP addresses to gateway allow list'.format(lab_location))
+        gateway_locations.append(lab_location)
+        _ = update_api_waf_policy(cmd, resource_prefix, gateway_resource_group_name, gateway_locations)
+
+    tags = {}
+    tags.update({tag_key('locations'): json.dumps(gateway_locations)})
+
+    hook.add(message='Updating gateway resource group tags')
+    _ = tag_resource_group(cmd, gateway_resource_group_name, tags)
 
     params = []
-    params.append('labName={}'.format(lab))
-    params.append('location={}'.format(location))
+    params.append('labName={}'.format(lab_name))
+    params.append('location={}'.format(lab_location))
     params.append('gatewayHostname={}'.format(gateway_hostname))
     params.append('gatewayToken={}'.format(token))
 
-    result, _ = deploy_arm_template_at_resource_group(cmd, lab_resource_group_name, template_uri=template,
+    hook.add(message='Adding gateway settings to lab')
+    result, _ = deploy_arm_template_at_resource_group(cmd, resource_group_name, template_uri=template,
                                                       parameters=[params])
+    hook.end(message=' ')
+    logger.warning(' ')
+
+    result = {}
+
+    # result.update({'location': location})
+    result.update({'lab': lab_name})
+    result.update({'labLocation': lab_location})
+    result.update({'labResourceGroup': resource_group_name})
+    result.update({'gatewayHostname': gateway_hostname})
+    result.update({'gatewayResourceGroup': gateway_resource_group_name})
 
     return result
-    # return params
 
 
-def lab_gateway_token_show(cmd, resource_group_name, resource_prefix, function_name=None):
-    return get_function_key(cmd, resource_group_name, function_name, 'CreateToken', 'gateway')
+def lab_gateway_token_show(cmd, resource_group_name, resource_prefix, gateway_function_name=None):
+    return get_function_key(cmd, resource_group_name, gateway_function_name, 'CreateToken', 'gateway')
+
+
+def lab_gateway_ip_add(cmd, resource_group_name, resource_prefix, ips):
+    ips = add_ips_gateway_waf_policy(cmd, resource_prefix, resource_group_name, ips)
+    return ips
+
+
+def lab_gateway_ip_remove(cmd, resource_group_name, resource_prefix, ips):
+    ips = remove_ips_gateway_waf_policy(cmd, resource_prefix, resource_group_name, ips)
+    return ips

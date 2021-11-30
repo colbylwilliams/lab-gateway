@@ -9,14 +9,16 @@ from time import sleep
 from knack.log import get_logger
 from knack.util import CLIError
 from msrestazure.tools import resource_id, parse_resource_id
-from azure.cli.core.commands import LongRunningOperation
+from azure.cli.core.commands import LongRunningOperation, upsert_to_collection
 from azure.cli.core.commands.client_factory import get_subscription_id
 from azure.cli.core.profiles import ResourceType, get_sdk
-from azure.cli.core.util import (random_string, sdk_no_wait)
+from azure.cli.core.util import (random_string, sdk_no_wait, find_child_item)
 from azure.cli.core.azclierror import ResourceNotFoundError
 
 from ._client_factory import (resource_client_factory, web_client_factory, network_client_factory)
-from ._utils import same_location
+from ._constants import (API_WAF_RULE_NAME, GATEWAY_WAF_RULE_NAME,
+                         get_service_tags, get_api_waf_name, get_gateway_waf_name)
+# from ._utils import same_location
 
 TRIES = 3
 
@@ -100,43 +102,141 @@ def get_function_key(cmd, resource_group_name, function_app_name, function_name,
         return new_key.value
 
 
-def get_azure_rp_ips(cmd, location):
+def get_azure_rp_ips(cmd, location, locations=None):
 
     client = network_client_factory(cmd.cli_ctx).service_tags
     service_tags = client.list(location)
 
-    bcdrs = []
-    if same_location(location, 'centralus'):
-        bcdrs = ['AzureCloud.centralus', 'AzureCloud.eastus']
-    elif same_location(location, 'eastus'):
-        bcdrs = ['AzureCloud.eastus', 'AzureCloud.canadacentral', 'AzureCloud.japaneast', 'AzureCloud.eastasia',
-                 'AzureCloud.northeurope', 'AzureCloud.australiaeast']
-    elif same_location(location, 'eastus2'):
-        bcdrs = ['AzureCloud.eastus2', 'AzureCloud.northcentralus', 'AzureCloud.southeastasia',
-                 'AzureCloud.uksouth', 'AzureCloud.westus2', 'AzureCloud.westeurope', 'AzureCloud.australiaeast']
+    if not locations:
+        locations = [location]
 
-    ips = []
-    if bcdrs:
-        ips = [t.properties.address_prefixes for t in service_tags.values if t.id in bcdrs]
-    else:
-        tag = next(t for t in service_tags.values if t.id == 'AzureCloud')
-        ips = tag.properties.address_prefixes
-        ips = [ips[i:i + 500] for i in range(0, len(ips), 500)]  # break down to lists of <= 500
+    bcdrs = get_service_tags(locations)
+
+    ips = [t.properties.address_prefixes for t in service_tags.values if t.id in bcdrs]
+    # if bcdrs:
+    #     ips = [t.properties.address_prefixes for t in service_tags.values if t.id in bcdrs]
+    # else:
+    #     tag = next(t for t in service_tags.values if t.id == 'AzureCloud')
+    #     ips = tag.properties.address_prefixes
+    #     ips = [ips[i:i + 500] for i in range(0, len(ips), 500)]  # break down to lists of <= 500
 
     return ips
 
 
-# def update_gateway_ip_rule(cmd):
-    # WebApplicationFirewallCustomRule, MatchCondition, MatchVariable = cmd.get_models(
-    #     'WebApplicationFirewallCustomRule', 'MatchCondition', 'MatchVariable',
-    #     resource_type=ResourceType.MGMT_NETWORK)
+def update_api_waf_policy(cmd, prefix, resource_group_name, locations):
 
-    # match_conditions = [MatchCondition(
-    #     match_variables=[MatchVariable(variable_name='RequestUri')],
-    #     operator='IPMatch',
-    #     negation_conditon=True,
-    #     match_values=t.properties.address_prefixes
-    # ) for t in service_tags.values if t.id in bcdrs]
+    policy_name = get_api_waf_name(prefix)
+
+    client = network_client_factory(cmd.cli_ctx).web_application_firewall_policies
+
+    waf_policy = client.get(resource_group_name, policy_name)
+    waf_policy_location = waf_policy.location.lower().replace(' ', '')
+
+    WebApplicationFirewallCustomRule, MatchCondition, MatchVariable = cmd.get_models(
+        'WebApplicationFirewallCustomRule', 'MatchCondition', 'MatchVariable',
+        resource_type=ResourceType.MGMT_NETWORK)
+
+    ips = get_azure_rp_ips(cmd, waf_policy_location, locations)
+
+    match_conditions = [MatchCondition(
+        match_variables=[MatchVariable(variable_name='RemoteAddr')],
+        operator='IPMatch',
+        negation_conditon=True,
+        match_values=i
+    ) for i in ips]
+
+    custom_rule = find_child_item(waf_policy, API_WAF_RULE_NAME, path='custom_rules', key_path='name')
+    custom_rule.match_conditions = match_conditions
+
+    upsert_to_collection(waf_policy, 'custom_rules', custom_rule, 'name', warn=False)
+
+    parent = client.create_or_update(resource_group_name, policy_name, waf_policy)
+
+    return find_child_item(parent, API_WAF_RULE_NAME, path='custom_rules', key_path='name')
+
+
+def add_ips_gateway_waf_policy(cmd, prefix, resource_group_name, ips):
+    policy_name = get_gateway_waf_name(prefix)
+
+    client = network_client_factory(cmd.cli_ctx).web_application_firewall_policies
+
+    waf_policy = client.get(resource_group_name, policy_name)
+    # waf_policy_location = waf_policy.location.lower().replace(' ', '')
+
+    try:
+        custom_rule = find_child_item(waf_policy, GATEWAY_WAF_RULE_NAME, path='custom_rules', key_path='name')
+    except CLIError:
+        WebApplicationFirewallCustomRule, MatchCondition, MatchVariable = cmd.get_models(
+            'WebApplicationFirewallCustomRule', 'MatchCondition', 'MatchVariable',
+            resource_type=ResourceType.MGMT_NETWORK)
+
+        custom_rule = WebApplicationFirewallCustomRule(
+            name=GATEWAY_WAF_RULE_NAME,
+            priority=8,
+            rule_type='MatchRule',
+            action='Block',
+            match_conditions=[MatchCondition(
+                match_variables=[MatchVariable(variable_name='RemoteAddr')],
+                operator='IPMatch',
+                negation_conditon=True,
+                match_values=[]
+            )]
+        )
+
+    match_ips = custom_rule.match_conditions[0].match_values
+
+    for ip in ips:
+        if ip not in match_ips:
+            match_ips.append(ip)
+
+    custom_rule.match_conditions[0].match_values = match_ips
+
+    upsert_to_collection(waf_policy, 'custom_rules', custom_rule, 'name', warn=False)
+    client.create_or_update(resource_group_name, policy_name, waf_policy)
+    return match_ips
+
+
+def remove_ips_gateway_waf_policy(cmd, prefix, resource_group_name, ips):
+    policy_name = get_gateway_waf_name(prefix)
+
+    client = network_client_factory(cmd.cli_ctx).web_application_firewall_policies
+
+    waf_policy = client.get(resource_group_name, policy_name)
+    # waf_policy_location = waf_policy.location.lower().replace(' ', '')
+
+    try:
+        custom_rule = find_child_item(waf_policy, GATEWAY_WAF_RULE_NAME, path='custom_rules', key_path='name')
+    except CLIError:
+        WebApplicationFirewallCustomRule, MatchCondition, MatchVariable = cmd.get_models(
+            'WebApplicationFirewallCustomRule', 'MatchCondition', 'MatchVariable',
+            resource_type=ResourceType.MGMT_NETWORK)
+
+        custom_rule = WebApplicationFirewallCustomRule(
+            name=GATEWAY_WAF_RULE_NAME,
+            priority=8,
+            rule_type='MatchRule',
+            action='Block',
+            match_conditions=[MatchCondition(
+                match_variables=[MatchVariable(variable_name='RemoteAddr')],
+                operator='IPMatch',
+                negation_conditon=True,
+                match_values=[]
+            )]
+        )
+
+    match_ips = []
+
+    for ip in custom_rule.match_conditions[0].match_values:
+        if ip not in ips:
+            match_ips.append(ip)
+
+    custom_rule.match_conditions[0].match_values = match_ips
+
+    # TODO: if ips is empty, delete the rule
+
+    upsert_to_collection(waf_policy, 'custom_rules', custom_rule, 'name', warn=False)
+    client.create_or_update(resource_group_name, policy_name, waf_policy)
+    return match_ips
 
 
 def _asn1_to_iso8601(asn1_date):
