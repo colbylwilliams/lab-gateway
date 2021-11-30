@@ -5,6 +5,7 @@
 # pylint: disable=too-many-statements, too-many-locals, too-many-lines
 
 import os
+import json
 import ipaddress
 from re import match
 from knack.log import get_logger
@@ -103,24 +104,25 @@ def process_gateway_create_namespace(cmd, ns):
 
 
 def process_gateway_connect_namespace(cmd, ns):
-    validate_resource_prefix(cmd, ns)
+    validate_gateway_resource_prefix(cmd, ns)
     index_version_validator(cmd, ns)
 
-    tags = get_resource_group_tags(cmd, ns.resource_group_name)
+    tags = get_resource_group_tags(cmd, ns.gateway_resource_group_name)
     validate_function_name(ns, tags)
     validate_gateway_hostname(ns, tags)
+    validate_gateway_locations(ns, tags)
 
     lab_parts, _ = _validate_name_or_id(
-        cmd.cli_ctx, ns.lab_resource_group_name, ns.lab, 'Microsoft.DevTestLab/labs',
+        cmd.cli_ctx, ns.resource_group_name, ns.lab_name, 'Microsoft.DevTestLab/labs',
         parent_value=None, parent_type=None)
 
     lab = get_lab(cmd, lab_parts)
     if lab:
         # ns.lab = lab_parts['name']
-        ns.lab = lab.name
-        ns.location = lab.location
+        ns.lab_name = lab.name
+        ns.lab_location = lab.location.lower().replace(' ', '')
     else:
-        raise ResourceNotFoundError('Lab {} not found'.format(ns.lab))
+        raise ResourceNotFoundError('Lab {} not found'.format(ns.lab_name))
 
     # lab_vnets = get_lab_vnets(cmd, lab_parts)
 
@@ -136,6 +138,7 @@ def process_gateway_connect_namespace(cmd, ns):
     #     if allowed_subnets:
     #         logger.warning('  allowed_subnets:')
     #         for allowed_subnet in allowed_subnets:
+    #             logger.warning('Lab subnet %s', allowed_subnet.resource_id)
     #             logger.warning('    resource_id: %s', allowed_subnet.resource_id)
     #             logger.warning('    lab_subnet_name: %s', allowed_subnet.lab_subnet_name)
     #             logger.warning('    allow_public_ip: %s', allowed_subnet.allow_public_ip)
@@ -155,15 +158,15 @@ def process_gateway_connect_namespace(cmd, ns):
     #     if external_subnets:
     #         logger.warning('  subnet_overrides:')
     #         for subnet_override in subnet_overrides:
-    #             logger.warning('    resource_id: %s:', subnet_override.resource_id)
-    #             logger.warning('    lab_subnet_name: %s:', subnet_override.lab_subnet_name)
-    #             logger.warning('    use_in_vm_creation_permission: %s:',
+    #             logger.warning('    resource_id: %s', subnet_override.resource_id)
+    #             logger.warning('    lab_subnet_name: %s', subnet_override.lab_subnet_name)
+    #             logger.warning('    use_in_vm_creation_permission: %s',
     #                            subnet_override.use_in_vm_creation_permission)
-    #             logger.warning('    use_public_ip_address_permission: %s:',
+    #             logger.warning('    use_public_ip_address_permission: %s',
     #                            subnet_override.use_public_ip_address_permission)
-    #             logger.warning('    shared_public_ip_address_configuration: %s:',
+    #             logger.warning('    shared_public_ip_address_configuration: %s',
     #                            subnet_override.shared_public_ip_address_configuration)
-    #             logger.warning('    virtual_network_pool_name: %s:',
+    #             logger.warning('    virtual_network_pool_name: %s',
     #                            subnet_override.virtual_network_pool_name)
     #             logger.warning('    ')
 
@@ -175,6 +178,12 @@ def process_gateway_connect_namespace(cmd, ns):
 
     # ns.lab_vnets = [v.id for v in vnets]
     # ns.lab_keyvault = lab.vault_name
+
+
+def process_gateway_ip_namespace(cmd, ns):
+    validate_resource_prefix(cmd, ns)
+    for ip in ns.ips:
+        _ = ipaddress.ip_address(ip)
 
 
 def process_gateway_show_namespace(cmd, ns):
@@ -197,7 +206,7 @@ def validate_function_name(ns, tags):
     if not function_name:
         raise ResourceNotFoundError('Unable to resolve function app name from resource group')
 
-    ns.function_name = function_name
+    ns.gateway_function_name = function_name
 
 
 def validate_gateway_hostname(ns, tags):
@@ -211,9 +220,32 @@ def validate_gateway_hostname(ns, tags):
     ns.gateway_hostname = hostname
 
 
+def validate_gateway_locations(ns, tags):
+    locationsj = get_tag(tags, 'locations')
+
+    if not locationsj:
+        raise ResourceNotFoundError('Unable to resolve lab locaitons resource group tags')
+
+    try:
+        locations = json.loads(locationsj)
+    except json.decoder.JSONDecodeError as e:
+        raise ResourceNotFoundError('Unable to resolve lab locaitons resource group tags') from e
+
+    ns.gateway_locations = locations
+
+
 def validate_resource_prefix(cmd, ns):
     sub = get_subscription_id(cmd.cli_ctx)
     resource_group_name_upper = ns.resource_group_name.upper()
+    group_id = resource_id(subscription=sub, resource_group=resource_group_name_upper)
+    unique_string = hash_string(group_id, length=12, force_lower=True)
+    prefix = get_resource_name(unique_string)
+    ns.resource_prefix = prefix
+
+
+def validate_gateway_resource_prefix(cmd, ns):
+    sub = get_subscription_id(cmd.cli_ctx)
+    resource_group_name_upper = ns.gateway_resource_group_name.upper()
     group_id = resource_id(subscription=sub, resource_group=resource_group_name_upper)
     unique_string = hash_string(group_id, length=12, force_lower=True)
     prefix = get_resource_name(unique_string)
