@@ -2,7 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License. See License.txt in the project root for license information.
 # --------------------------------------------------------------------------------------------
-# pylint: disable=too-many-statements, too-many-locals, too-many-lines
+# pylint: disable=too-many-statements, too-many-locals, too-many-lines, consider-using-f-string
 
 import os
 import json
@@ -122,7 +122,7 @@ def process_gateway_connect_namespace(cmd, ns):
         ns.lab_name = lab.name
         ns.lab_location = lab.location.lower().replace(' ', '')
     else:
-        raise ResourceNotFoundError('Lab {} not found'.format(ns.lab_name))
+        raise ResourceNotFoundError(f'Lab {ns.lab_name} not found')
 
     # lab_vnets = get_lab_vnets(cmd, lab_parts)
 
@@ -265,7 +265,7 @@ def validate_gateway_tags(ns):
 
     ext = get_extension('lab-gateway')
     cur_version = ext.get_version()
-    cur_version_str = 'v{}'.format(cur_version)
+    cur_version_str = f'v{cur_version}'
 
     tags_dict.update({tag_key('cli'): cur_version_str})
 
@@ -291,7 +291,7 @@ def validate_vnet(cmd, ns):
         setattr(ns, 'vnet_type', 'existing')
         if not same_location(ns.location, vnet.location):
             raise InvalidArgumentValueError(
-                '--vnet {} must be in the same location as the gateway'.format(vnet_name))
+                f'--vnet {vnet_name} must be in the same location as the gateway')
         if ns.vnet_address_prefix not in ('', '""', "''") or ns.vnet_address_prefix is not None:
             ns.vnet_address_prefix = None
             if not default_prefix:
@@ -317,17 +317,17 @@ def validate_vnet(cmd, ns):
 
 
 def validate_subnet(cmd, ns, subnet, vnet_parts, vnet_prefixes):
-    property_option = '--{}-subnet'.format(subnet)
-    prefix_property_option = '--{}-subnet-address-prefix'.format(subnet)
+    property_option = f'--{subnet}-subnet'
+    prefix_property_option = f'--{subnet}-subnet-address-prefix'
 
-    property_name = '{}_subnet'.format(subnet)
-    type_property_name = '{}_subnet_type'.format(subnet)
-    prefix_property_name = '{}_subnet_address_prefix'.format(subnet)
+    property_name = f'{subnet}_subnet'
+    type_property_name = f'{subnet}_subnet_type'
+    prefix_property_name = f'{subnet}_subnet_address_prefix'
 
     property_val = getattr(ns, property_name, None)
 
     if none_or_empty(property_val):
-        raise InvalidArgumentValueError('{} must have a value'.format(property_option))
+        raise InvalidArgumentValueError(f'{property_option} must have a value')
 
     vnet_name = vnet_parts['name']
     vnet_group = vnet_parts['resource_group']
@@ -338,16 +338,16 @@ def validate_subnet(cmd, ns, subnet, vnet_parts, vnet_prefixes):
     subnet_name = resource_id_parts['child_name_1']
 
     if subnet == 'bastion' and subnet_name != 'AzureBastionSubnet':
-        raise InvalidArgumentValueError('{} must be AzureBastionSubnet'.format(property_option))
+        raise InvalidArgumentValueError(f'{property_option} must be AzureBastionSubnet')
 
     if vnet_name is None and resource_id_parts['name'] is not None:
         # user didn't specify a vnet but provided an resource id (opposed to a name) for the subnet
         raise InvalidArgumentValueError(
-            '--vnet must have a value that matches the subnet id provided for {}'.format(property_option))
+            f'--vnet must have a value that matches the subnet id provided for {property_option}')
 
     missmatch_parts = [k for k in ['subscription', 'resource_group', 'name'] if resource_id_parts[k] != vnet_parts[k]]
     if missmatch_parts:
-        raise InvalidArgumentValueError('{} must in the vnet {}'.format(property_option, vnet_name))
+        raise InvalidArgumentValueError(f'{property_option} must in the vnet {vnet_name}')
 
     setattr(ns, property_name, subnet_name)
 
@@ -372,8 +372,7 @@ def validate_subnet(cmd, ns, subnet, vnet_parts, vnet_prefixes):
 
     elif none_or_empty(prefix_property_val):
         raise InvalidArgumentValueError(
-            '{} must have a valid CIDR prefix when subnet {} does not esist'.format(
-                prefix_property_option, subnet_name))
+            f'{prefix_property_option} must have a valid CIDR prefix when subnet {subnet_name} does not esist')
 
     else:
         setattr(ns, type_property_name, 'new')
@@ -403,7 +402,7 @@ def validate_token_lifetime(cmd, ns):  # pylint: disable=unused-argument
             raise InvalidArgumentValueError(
                 '--token-lifetime must be a number between 1 and 59')
 
-        ns.token_lifetime = '00:0{}:00'.format(lifetime) if lifetime < 10 else '00:{}:00'.format(lifetime)
+        ns.token_lifetime = f'00:0{lifetime}:00' if lifetime < 10 else f'00:{lifetime}:00'
 
 
 def validate_public_ip(cmd, ns):
@@ -427,31 +426,31 @@ def validate_public_ip(cmd, ns):
 
             if ip_parts['subscription'] != sub:
                 raise InvalidArgumentValueError(
-                    '--public-ip-address {} must in the same subscription as the gateway'.format(ip_name))
+                    f'--public-ip-address {ip_name} must in the same subscription as the gateway')
 
             if ip_parts['resource_group'].lower() != ns.resource_group_name.lower():
                 raise InvalidArgumentValueError(
-                    '--public-ip-address {} must in the same resource group as the gateway'.format(ip_name))
+                    f'--public-ip-address {ip_name} must in the same resource group as the gateway')
 
             if not same_location(ns.location, ip.location):
                 raise InvalidArgumentValueError(
-                    '--public-ip-address {} must in the same location as the gateway'.format(ip_name))
+                    f'--public-ip-address {ip_name} must in the same location as the gateway')
 
             if ip.sku.name.lower() != 'standard':
                 raise InvalidArgumentValueError(
-                    '--public-ip-address {} sku must be Standard'.format(ip_name))
+                    f'--public-ip-address {ip_name} sku must be Standard')
 
             if ip.public_ip_allocation_method.lower() != 'static':
                 raise InvalidArgumentValueError(
-                    '--public-ip-address {} public_ip_allocation_method must static'.format(ip_name))
+                    f'--public-ip-address {ip_name} public_ip_allocation_method must static')
 
             if ip.public_ip_address_version.lower() != 'ipv4':
                 raise InvalidArgumentValueError(
-                    '--public-ip-address {} public_ip_address_version must be IPv4'.format(ip_name))
+                    f'--public-ip-address {ip_name} public_ip_address_version must be IPv4')
 
         else:
             raise InvalidArgumentValueError(
-                '--public-ip-address {} could not be found'.format(ip_name))
+                f'--public-ip-address {ip_name} could not be found')
 
 
 def validate_private_ip(cmd, ns, prefix):  # pylint: disable=unused-argument
@@ -462,13 +461,12 @@ def validate_private_ip(cmd, ns, prefix):  # pylint: disable=unused-argument
 
     if private_ip not in ipaddress.ip_network(prefix):
         raise InvalidArgumentValueError(
-            '--private-ip-address {} is not in subnet network {}'.format(ns.private_ip_address, prefix))
+            f'--private-ip-address {ns.private_ip_address} is not in subnet network {prefix}')
 
     ip_host = ns.private_ip_address.rsplit('.', 1)[1]
     if int(ip_host) < 5:
         raise InvalidArgumentValueError(
-            '--private-ip-address {} is invalid, addresses ending in .0 - .4 are reserved'.format(
-                ns.private_ip_address))
+            f'--private-ip-address {ns.private_ip_address} is invalid, addresses ending in .0 - .4 are reserved')
 
 
 def index_version_validator(cmd, ns):  # pylint: disable=unused-argument
@@ -487,7 +485,7 @@ def index_version_validator(cmd, ns):  # pylint: disable=unused-argument
                 '--version/-v should be in format v0.0.0 do not include -pre suffix')
 
         if not github_release_version_exists(ns.version):
-            raise InvalidArgumentValueError('--version/-v {} does not exist'.format(ns.version))
+            raise InvalidArgumentValueError(f'--version/-v {ns.version} does not exist')
 
     elif ns.index_url:
         if not _is_valid_url(ns.index_url):
@@ -496,8 +494,7 @@ def index_version_validator(cmd, ns):  # pylint: disable=unused-argument
 
     else:
         ns.version = ns.version or get_github_latest_release_version(prerelease=ns.prerelease)
-        ns.index_url = 'https://github.com/colbylwilliams/lab-gateway/releases/download/{}/index.json'.format(
-            ns.version)
+        ns.index_url = f'https://github.com/colbylwilliams/lab-gateway/releases/download/{ns.version}/index.json'
 
 
 def _is_valid_url(url):
@@ -519,7 +516,7 @@ def certificate_type(string):
             cert_data = f.read()
         return cert_data
     except (IOError, OSError) as e:
-        raise InvalidArgumentValueError("Unable to load certificate file '{}': {}.".format(string, e.strerror)) from e
+        raise InvalidArgumentValueError(f"Unable to load certificate file '{string}': {e.strerror}.") from e
 
 
 def msi_type(string):
@@ -529,11 +526,11 @@ def msi_type(string):
             mis_data = f.read()
         return mis_data
     except (IOError, OSError) as e:
-        raise InvalidArgumentValueError("Unable to load msi file '{}': {}.".format(string, e.strerror)) from e
+        raise InvalidArgumentValueError(f"Unable to load msi file '{string}': {e.strerror}.") from e
 
 # def validate_subnet_address_prefixes(ns, subnet):
-#     type_property_name = '{}_subnet_type'.format(subnet)
-#     prefix_property_name = '{}_subnet_address_prefix'.format(subnet)
+#     type_property_name = f'{subnet}_subnet_type'
+#     prefix_property_name = f'{subnet}_subnet_address_prefix'
 
 #     type_property = getattr(ns, type_property_name, None)
 
@@ -544,7 +541,7 @@ def msi_type(string):
 #         address = prefix_components[0]
 #         bit_mask = int(prefix_components[1])
 #         subnet_mask = 24 if bit_mask < 24 else bit_mask
-#         subnet_prefix = '{}/{}'.format(address, subnet_mask)
+#         subnet_prefix = f'{address}/{subnet_mask}'
 
     # if type_property != 'new':
     #     validate_parameter_set(ns, required=[],

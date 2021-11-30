@@ -73,7 +73,7 @@ def get_arm_output(outputs, key, raise_on_error=True):
     except KeyError as e:
         if raise_on_error:
             raise CLIError(
-                "A value for '{}' was not provided in the ARM template outputs".format(key)) from e
+                f"A value for '{key}' was not provided in the ARM template outputs") from e
         value = None
 
     return value
@@ -132,7 +132,8 @@ def update_api_waf_policy(cmd, prefix, resource_group_name, locations):
     waf_policy = client.get(resource_group_name, policy_name)
     waf_policy_location = waf_policy.location.lower().replace(' ', '')
 
-    WebApplicationFirewallCustomRule, MatchCondition, MatchVariable = cmd.get_models(
+    # WebApplicationFirewallCustomRule,
+    MatchCondition, MatchVariable = cmd.get_models(
         'WebApplicationFirewallCustomRule', 'MatchCondition', 'MatchVariable',
         resource_type=ResourceType.MGMT_NETWORK)
 
@@ -314,7 +315,7 @@ def import_certificate(cmd, vault_name, certificate_name, certificate_data,
         certificate_policy = CertificatePolicy(
             secret_properties=SecretProperties(content_type=content_type))
 
-    vault_base_url = 'https://{}{}'.format(vault_name, cmd.cli_ctx.cloud.suffixes.keyvault_dns)
+    vault_base_url = f'https://{vault_name}{cmd.cli_ctx.cloud.suffixes.keyvault_dns}'
 
     logger.info("Starting 'keyvault certificate import'")
     from ._client_factory import keyvault_data_client_factory  # pylint: disable=import-outside-toplevel
@@ -352,8 +353,8 @@ def create_subnet(cmd, vnet, subnet_name, address_prefix):
 
     create_poller = client.begin_create_or_update(resource_group_name, vnet_name, subnet_name, subnet)
 
-    result = LongRunningOperation(cmd.cli_ctx, start_msg='Creating {}'.format(subnet_name),
-                                  finish_msg='Finished creating {}'.format(subnet_name))(create_poller)
+    result = LongRunningOperation(cmd.cli_ctx, start_msg=f'Creating {subnet_name}',
+                                  finish_msg=f'Finished creating {subnet_name}')(create_poller)
 
     logger.warning(result)
 

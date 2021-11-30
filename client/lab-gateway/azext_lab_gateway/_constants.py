@@ -101,32 +101,32 @@ SERVICE_TAGS_ALL = [
 
 
 def tag_key(key):
-    return '{}{}'.format(TAG_PREFIX, key)
+    return f'{TAG_PREFIX}{key}'
 
 
 def get_resource_name(unique_string):
-    return 'lgw{}a'.format(unique_string)
+    return f'lgw{unique_string}a'
 
 
 def get_function_name(prefix):
-    return '{}-fa'.format(prefix)
+    return f'{prefix}-fa'
 
 
 def get_gateway_name(prefix):
-    return '{}-gw'.format(prefix)
+    return f'{prefix}-gw'
 
 
 def get_gateway_waf_name(prefix):
-    return '{}-gw-waf'.format(prefix)
+    return f'{prefix}-gw-waf'
 
 
 def get_api_waf_name(prefix):
-    return '{}-gw-waf-api'.format(prefix)
+    return f'{prefix}-gw-waf-api'
 
 
 def get_service_tags(locations):
 
-    locs = [l.lower().replace(' ', '') for l in locations]
+    locs = [loc.lower().replace(' ', '') for loc in locations]
 
     tags = []
     regions = []
@@ -155,7 +155,7 @@ def get_service_tags(locations):
         tags.extend(SERVICE_TAGS_ROW_2)
 
     for loc in locs:
-        tag = 'AzureCloud.{}'.format(loc)
+        tag = f'AzureCloud.{loc}'
         if tag not in tags:
             tags.append(tag)
 

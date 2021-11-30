@@ -29,7 +29,7 @@ def open_url_in_browser(url):
         open_page_in_browser(url)
     else:
         print("There isn't an available browser finish the setup. Please copy and paste the url"
-              " below in a browser to complete the configuration.\n\n{}\n\n".format(url))
+              f" below in a browser to complete the configuration.\n\n{url}\n\n")
 
 
 def same_location(loc_a, loc_b):
@@ -55,7 +55,7 @@ def _get_current_user_object_id(graph_client):
 
 def _get_object_id_by_spn(graph_client, spn):
     accounts = list(graph_client.service_principals.list(
-        filter="servicePrincipalNames/any(c:c eq '{}')".format(spn)))
+        filter=f"servicePrincipalNames/any(c:c eq '{spn}')"))
     if not accounts:
         logger.warning("Unable to find user with spn '%s'", spn)
         return None
@@ -67,7 +67,7 @@ def _get_object_id_by_spn(graph_client, spn):
 
 
 def _get_object_id_by_upn(graph_client, upn):
-    accounts = list(graph_client.users.list(filter="userPrincipalName eq '{}'".format(upn)))
+    accounts = list(graph_client.users.list(filter=f"userPrincipalName eq '{upn}'"))
     if not accounts:
         logger.warning("Unable to find user with upn '%s'", upn)
         return None

@@ -2,7 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License. See License.txt in the project root for license information.
 # --------------------------------------------------------------------------------------------
-# pylint: disable=unused-argument, too-many-statements, too-many-locals, too-many-lines
+# pylint: disable=unused-argument, too-many-statements, too-many-locals, too-many-lines, consider-using-f-string
 
 import json
 import requests
@@ -51,21 +51,21 @@ def lab_gateway_create(cmd, resource_group_name, admin_username, admin_password,
     # thus for existing vnets we create the missing subnets here vs the ARM template
     if vnet_type == 'existing':
         if rdgateway_subnet_type == 'new':
-            hook.add(message='Creating {}'.format(rdgateway_subnet))
+            hook.add(message=f'Creating {rdgateway_subnet}')
             create_subnet(cmd, vnet, rdgateway_subnet, rdgateway_subnet_address_prefix)
         if appgateway_subnet_type == 'new':
-            hook.add(message='Creating {}'.format(appgateway_subnet))
+            hook.add(message=f'Creating {appgateway_subnet}')
             create_subnet(cmd, vnet, appgateway_subnet, appgateway_subnet_address_prefix)
         if bastion_subnet_type == 'new':
-            hook.add(message='Creating {}'.format(bastion_subnet))
+            hook.add(message=f'Creating {bastion_subnet}')
             create_subnet(cmd, vnet, bastion_subnet, bastion_subnet_address_prefix)
 
     a_params = []
-    a_params.append('location={}'.format(location))
-    a_params.append('resourcePrefix={}'.format(resource_prefix))
-    a_params.append('userId={}'.format(user_object_id))
-    a_params.append('tenantId={}'.format(user_tenant_id))
-    a_params.append('tags={}'.format(json.dumps(tags)))
+    a_params.append(f'location={location}')
+    a_params.append(f'resourcePrefix={resource_prefix}')
+    a_params.append(f'userId={user_object_id}')
+    a_params.append(f'tenantId={user_tenant_id}')
+    a_params.append(f'tags={json.dumps(tags)}')
 
     # deployA template creates a keyvault, storage account, and log analytics workspace
     hook.add(message='Creating keyvault and storage account')
@@ -90,7 +90,7 @@ def lab_gateway_create(cmd, resource_group_name, admin_username, admin_password,
 
     # upload the artifacts from the github repo
     for artifact_name, artifact_url in artifact_items:
-        hook.add(message='Uploading {} to storage'.format(artifact_name))
+        hook.add(message=f'Uploading {artifact_name} to storage')
         blob_client = blob_service_client.get_blob_client(storage_artifacts_container, artifact_name)
         blob_exists = blob_client.exists()
         if not blob_exists:
@@ -105,29 +105,29 @@ def lab_gateway_create(cmd, resource_group_name, admin_username, admin_password,
         blob_client.upload_blob(auth_msi)
 
     b_params = []
-    b_params.append('location={}'.format(location))
-    b_params.append('resourcePrefix={}'.format(resource_prefix))
-    b_params.append('adminUsername={}'.format(admin_username))
-    b_params.append('adminPassword={}'.format(admin_password))
-    b_params.append('tokenLifetime={}'.format(token_lifetime))
-    b_params.append('hostName={}'.format(cert_cn))
-    b_params.append('sslCertificateSecretUri={}'.format(cert_secret_url))
+    b_params.append(f'location={location}')
+    b_params.append(f'resourcePrefix={resource_prefix}')
+    b_params.append(f'adminUsername={admin_username}')
+    b_params.append(f'adminPassword={admin_password}')
+    b_params.append(f'tokenLifetime={token_lifetime}')
+    b_params.append(f'hostName={cert_cn}')
+    b_params.append(f'sslCertificateSecretUri={cert_secret_url}')
     b_params.append('vnet={}'.format('' if vnet is None else vnet))
     b_params.append('publicIPAddress={}'.format('' if public_ip_address is None else public_ip_address))
     b_params.append('tokenPrivateEndpoint={}'.format('false'))
-    b_params.append('instanceCount={}'.format(instance_count))
+    b_params.append(f'instanceCount={instance_count}')
     b_params.append('vnetAddressPrefixes={}'.format(json.dumps([vnet_address_prefix])))
 
-    b_params.append('gatewaySubnetName={}'.format(rdgateway_subnet))
+    b_params.append(f'gatewaySubnetName={rdgateway_subnet}')
     if rdgateway_subnet_address_prefix is not None:
-        b_params.append('gatewaySubnetAddressPrefix={}'.format(rdgateway_subnet_address_prefix))
+        b_params.append(f'gatewaySubnetAddressPrefix={rdgateway_subnet_address_prefix}')
 
     if bastion_subnet_address_prefix is not None:
-        b_params.append('bastionSubnetAddressPrefix={}'.format(bastion_subnet_address_prefix))
+        b_params.append(f'bastionSubnetAddressPrefix={bastion_subnet_address_prefix}')
 
-    b_params.append('appGatewaySubnetName={}'.format(appgateway_subnet))
+    b_params.append(f'appGatewaySubnetName={appgateway_subnet}')
     if appgateway_subnet_address_prefix is not None:
-        b_params.append('appGatewaySubnetAddressPrefix={}'.format(appgateway_subnet_address_prefix))
+        b_params.append(f'appGatewaySubnetAddressPrefix={appgateway_subnet_address_prefix}')
 
     b_params.append('privateIPAddress={}'.format('' if private_ip_address is None else private_ip_address))
 
@@ -155,8 +155,8 @@ def lab_gateway_create(cmd, resource_group_name, admin_username, admin_password,
     tags.update({tag_key('function'): function_name})
     tags.update({tag_key('publicIp'): public_ip})
     tags.update({tag_key('vnet'): vnet_id})
-    tags.update({tag_key('privateIp'): '{}'.format(private_ip_address)})
-    tags.update({tag_key('prefix'): '{}'.format(resource_prefix)})
+    tags.update({tag_key('privateIp'): f'{private_ip_address}'})
+    tags.update({tag_key('prefix'): f'{resource_prefix}'})
     tags.update({tag_key('locations'): json.dumps(['{}'.format(location.lower().replace(' ', ''))])})
 
     # apply the tags at the resource group level
@@ -174,9 +174,9 @@ def lab_gateway_create(cmd, resource_group_name, admin_username, admin_password,
     logger.warning('')
 
     result = {}
-    result.update({'location': '{}'.format(location)})
+    result.update({'location': f'{location}'})
     result.update({'subscription': sub})
-    result.update({'resourceGroup': '{}'.format(resource_group_name)})
+    result.update({'resourceGroup': f'{resource_group_name}'})
 
     for k in tags:
         if k.startswith(TAG_PREFIX):
@@ -211,14 +211,14 @@ def lab_gateway_lab_connect(cmd, resource_group_name, lab_name, gateway_resource
     logger.warning('Connecting lab using%s version: %s', ' prerelease' if prerelease else '', version)
 
     # foo = {
-    #     'resource_group_name': '{}'.format(resource_group_name),
-    #     'lab_name': '{}'.format(lab_name),
-    #     'gateway_resource_group_name': '{}'.format(gateway_resource_group_name),
-    #     'resource_prefix': '{}'.format(resource_prefix),
-    #     'lab_location': '{}'.format(lab_location),
-    #     'gateway_function_name': '{}'.format(gateway_function_name),
-    #     'gateway_hostname': '{}'.format(gateway_hostname),
-    #     'gateway_locations': '{}'.format(gateway_locations)
+    #     'resource_group_name': f'{resource_group_name}',
+    #     'lab_name': f'{lab_name}',
+    #     'gateway_resource_group_name': f'{gateway_resource_group_name}',
+    #     'resource_prefix': f'{resource_prefix}',
+    #     'lab_location': f'{lab_location}',
+    #     'gateway_function_name': f'{gateway_function_name}',
+    #     'gateway_hostname': f'{gateway_hostname}',
+    #     'gateway_locations': f'{gateway_locations}'
     # }
 
     # return foo
@@ -232,7 +232,7 @@ def lab_gateway_lab_connect(cmd, resource_group_name, lab_name, gateway_resource
     token = get_function_key(cmd, gateway_resource_group_name, gateway_function_name, 'CreateToken', 'gateway')
 
     if lab_location not in gateway_locations:
-        hook.add(message='Adding {} Azure region IP addresses to gateway allow list'.format(lab_location))
+        hook.add(message=f'Adding {lab_location} Azure region IP addresses to gateway allow list')
         gateway_locations.append(lab_location)
         _ = update_api_waf_policy(cmd, resource_prefix, gateway_resource_group_name, gateway_locations)
 
@@ -243,10 +243,10 @@ def lab_gateway_lab_connect(cmd, resource_group_name, lab_name, gateway_resource
     _ = tag_resource_group(cmd, gateway_resource_group_name, tags)
 
     params = []
-    params.append('labName={}'.format(lab_name))
-    params.append('location={}'.format(lab_location))
-    params.append('gatewayHostname={}'.format(gateway_hostname))
-    params.append('gatewayToken={}'.format(token))
+    params.append(f'labName={lab_name}')
+    params.append(f'location={lab_location}')
+    params.append(f'gatewayHostname={gateway_hostname}')
+    params.append(f'gatewayToken={token}')
 
     hook.add(message='Adding gateway settings to lab')
     result, _ = deploy_arm_template_at_resource_group(cmd, resource_group_name, template_uri=template,

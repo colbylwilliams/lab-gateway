@@ -31,7 +31,7 @@ def get_lab_name_completion_list(group_option='resource_group_name'):
     def completer(cmd, prefix, ns, **kwargs):  # pylint: disable=unused-argument
         rg = getattr(ns, group_option, None)
         client = labs_client_factory(cmd.cli_ctx)
-        filter_str = None if prefix is None else "startsWith(name, '{}')".format(prefix)
+        filter_str = None if prefix is None else f"startsWith(name, '{prefix}')"
 
         if rg:
             return [r.name for r in client.labs.list_by_resource_group(rg, filter=filter_str)]
